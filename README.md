@@ -4,3 +4,6 @@ First you have to clone this project first:
 
 after cloning this project, run 
 **npm init**
+
+run: 
+**npm run dev**
