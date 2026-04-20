@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ROBO-NAV — Navigation Control System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            bg:      '#0A0A0A',
+            panel:   '#111111',
+            surface: '#1A1A1A',
+            card:    '#141414',
+            border:  '#222222',
+            'border-hi': '#333333',
+          },
+          animation: {
+            'pulse-dot': 'pulse-dot 2s ease-in-out infinite',
+            'cell-glow': 'cell-glow 2s ease-in-out infinite',
+          },
+          keyframes: {
+            'pulse-dot': {
+              '0%,100%': { opacity: '1' },
+              '50%': { opacity: '0.4' },
+            },
+            'cell-glow': {
+              '0%,100%': { boxShadow: '0 0 8px rgba(37,99,235,0.3)' },
+              '50%': { boxShadow: '0 0 20px rgba(37,99,235,0.6)' },
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body { background-color: #0A0A0A; }
+    .cell { transition: background 150ms ease, border-color 150ms ease; }
+    .cell.robot { animation: cell-glow 2s ease-in-out infinite; }
+    @keyframes cell-glow {
+      0%,100% { box-shadow: 0 0 8px rgba(37,99,235,0.35); }
+      50%      { box-shadow: 0 0 22px rgba(37,99,235,0.65); }
+    }
+    .log-line { animation: fadein 0.2s ease forwards; }
+    @keyframes fadein { from { opacity:0; transform:translateX(-4px); } to { opacity:1; transform:none; } }
+    #log-output::-webkit-scrollbar { width: 4px; }
+    #log-output::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+    #log-output { scrollbar-width: thin; scrollbar-color: #333 transparent; }
+    .dpad-btn:active { transform: scale(0.92); }
+    .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+    input::placeholder { color: #333; }
+    input:focus { outline: none; }
+  </style>
+</head>
+<body class="text-white font-sans flex flex-col min-h-screen">
+
+  <!-- TOP BAR -->
+  <header class="flex items-center justify-between px-5 h-12 bg-panel border-b border-border flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <span class="text-sm font-bold tracking-widest">ProjectAutomata</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="clock" class="text-xs font-mono text-neutral-600"></span>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="flex flex-1 overflow-hidden">
+
+    <!-- LEFT: Grid -->
+    <section class="flex-1 flex flex-col items-center justify-center border-r border-border bg-panel">
+
+      <div class="flex-1 flex items-center justify-center p-8">
+        <div id="grid-container"
+          class="grid gap-[3px] bg-surface border border-border p-[3px] rounded-lg"
+          style="grid-template-columns: repeat(8, 56px); grid-template-rows: repeat(8, 56px);">
+        </div>
+      </div>
+
+      <!-- Coord bar -->
+      <div class="w-full flex items-center justify-center border-t border-border bg-panel px-6 py-3">
+        <div class="flex items-center divide-x divide-border">
+          <div class="flex items-center gap-2 px-5">
+            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">X</span>
+            <span id="coord-x" class="text-sm font-bold font-mono min-w-[2rem]">0</span>
+          </div>
+          <div class="flex items-center gap-2 px-5">
+            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">Y</span>
+            <span id="coord-y" class="text-sm font-bold font-mono min-w-[2rem]">0</span>
+          </div>
+          <div class="flex items-center gap-2 px-5">
+            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">DIR</span>
+            <span id="coord-dir" class="text-sm font-bold font-mono min-w-[3.5rem]">NORTH</span>
+          </div>
+          <div class="flex items-center gap-2 px-5">
+            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">STEPS</span>
+            <span id="coord-steps" class="text-sm font-bold font-mono min-w-[2rem]">0</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Sidebar -->
+    <aside class="w-80 flex flex-col bg-panel">
+
+      <!-- Stat cards -->
+      <div class="border-b border-border">
+        <div class="px-4 py-3 border-b border-border">
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">Unit Status</span>
+        </div>
+        <div class="grid grid-cols-2 divide-x divide-y divide-border">
+          <div class="p-3 bg-card">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Battery</div>
+            <div id="stat-battery" class="text-lg font-bold font-mono text-green-400 mb-2">87%</div>
+            <div class="h-[3px] bg-border rounded-full overflow-hidden">
+              <div id="battery-fill" class="h-full bg-green-500 rounded-full transition-all" style="width:87%"></div>
+            </div>
+          </div>
+          <div class="p-3 bg-card">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Signal</div>
+            <div class="text-lg font-bold font-mono text-green-400 mb-2">95%</div>
+            <div class="h-[3px] bg-border rounded-full overflow-hidden">
+              <div class="h-full bg-green-500 rounded-full" style="width:95%"></div>
+            </div>
+          </div>
+          <div class="p-3 bg-card">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Commands</div>
+            <div id="stat-cmds" class="text-lg font-bold font-mono">0</div>
+          </div>
+          <div class="p-3 bg-card">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Errors</div>
+            <div id="stat-errs" class="text-lg font-bold font-mono text-red-400">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Command input -->
+      <div class="border-b border-border p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">Command Input</span>
+          <span class="text-[10px] text-neutral-700 font-mono">UP · DOWN · LEFT · RIGHT · RESET</span>
+        </div>
+
+        <div class="flex items-center gap-2 bg-surface border border-border-hi rounded-lg px-3 focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.15)] transition-all">
+          <span class="text-neutral-600 font-mono text-base">›</span>
+          <input
+            id="cmd-input"
+            type="text"
+            class="flex-1 bg-transparent text-white font-mono text-[13px] py-2 caret-blue-500"
+            placeholder="e.g. UP UP RIGHT DOWN"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="flex gap-2">
+          <button id="run-btn" class="btn-run flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold py-2 rounded-lg transition-colors">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5l9 5.5-9 5.5V2.5z"/></svg>
+            <span id="run-label">Execute</span>
+          </button>
+          <button id="reset-btn" class="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white text-[13px] font-semibold px-4 py-2 rounded-lg transition-colors">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.5a.5.5 0 0 1 .5.5v2.793l1.646-1.647a.5.5 0 0 1 .708.708l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5a.5.5 0 1 1 .708-.708L7.5 7.793V5a.5.5 0 0 1 .5-.5z"/></svg>
+            Reset
+          </button>
+        </div>
+
+        <!-- D-pad -->
+        <div class="flex flex-col items-center gap-1 pt-1">
+          <div class="flex gap-1">
+            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm font-mono transition-all" data-cmd="UP">▲</button>
+          </div>
+          <div class="flex gap-1">
+            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm transition-all" data-cmd="LEFT">◄</button>
+            <button class="dpad-btn w-10 h-10 bg-card border border-border text-neutral-600 hover:bg-border-hi hover:text-white rounded-md text-xs transition-all" data-cmd="RESET">●</button>
+            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm transition-all" data-cmd="RIGHT">►</button>
+          </div>
+          <div class="flex gap-1">
+            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm transition-all" data-cmd="DOWN">▼</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="flex flex-col flex-1 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+          <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">System Log</span>
+          <button id="clear-log" class="text-[11px] text-neutral-600 hover:text-neutral-400 transition-colors">Clear</button>
+        </div>
+        <div id="log-output" class="flex-1 overflow-y-auto py-2 font-mono text-[11px]"></div>
+      </div>
+    </aside>
+  </main>
+
+
+  <script src="assets/js/grid.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

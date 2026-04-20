@@ -1,0 +1,115 @@
+const Grid = (() => {
+  const ROWS = 8;
+  const COLS = 8;
+
+  let robotRow = 7;
+  let robotCol = 0;
+  let trail = [];
+  let direction = 'NORTH';
+  let stepCount = 0;
+
+  const DIR_ICON = { NORTH: '▲', SOUTH: '▼', EAST: '►', WEST: '◄' };
+
+  function init() {
+    const container = document.getElementById('grid-container');
+    container.innerHTML = '';
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell w-14 h-14 bg-card border border-border rounded-[4px] flex items-center justify-center relative';
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+
+        // Subtle coord label
+        const label = document.createElement('span');
+        label.className = 'absolute bottom-[3px] right-[4px] text-[8px] font-mono text-neutral-800 leading-none select-none';
+        label.textContent = `${c},${ROWS - 1 - r}`;
+        cell.appendChild(label);
+
+        container.appendChild(cell);
+      }
+    }
+
+    _render();
+  }
+
+  function _getCell(r, c) {
+    return document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+  }
+
+  function _render() {
+    // Clear all dynamic states
+    document.querySelectorAll('.cell').forEach(cell => {
+      cell.classList.remove(
+        'robot', 'trail',
+        'bg-[#0c1e42]', 'border-blue-500', 'bg-[#0E1829]', 'border-[#1a2d4a]'
+      );
+      // Remove dynamic children (icon / dot), keep label
+      const icon = cell.querySelector('.robot-icon');
+      const dot  = cell.querySelector('.trail-dot');
+      if (icon) icon.remove();
+      if (dot)  dot.remove();
+    });
+
+    // Render trail
+    trail.forEach(({ row, col }) => {
+      if (row === robotRow && col === robotCol) return;
+      const cell = _getCell(row, col);
+      if (!cell) return;
+      cell.classList.add('trail', 'bg-[#0E1829]', 'border-[#1a2d4a]');
+      const dot = document.createElement('span');
+      dot.className = 'trail-dot w-1.5 h-1.5 rounded-full bg-blue-500/40';
+      cell.appendChild(dot);
+    });
+
+    // Render robot
+    const robotCell = _getCell(robotRow, robotCol);
+    if (robotCell) {
+      robotCell.classList.add('robot', 'bg-[#0c1e42]', 'border-blue-500');
+      robotCell.style.boxShadow = '0 0 0 1px rgba(37,99,235,0.15)';
+      const icon = document.createElement('span');
+      icon.className = 'robot-icon text-xl text-blue-400 leading-none select-none';
+      icon.style.filter = 'drop-shadow(0 0 4px rgba(96,165,250,0.7))';
+      icon.textContent = DIR_ICON[direction] || '◉';
+      robotCell.appendChild(icon);
+    }
+
+    // Update HUD
+    document.getElementById('coord-x').textContent = robotCol;
+    document.getElementById('coord-y').textContent = ROWS - 1 - robotRow;
+    document.getElementById('coord-dir').textContent = direction;
+    document.getElementById('coord-steps').textContent = stepCount;
+  }
+
+  function move(newRow, newCol, newDir) {
+    if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) return false;
+
+    const alreadyTrailed = trail.some(p => p.row === robotRow && p.col === robotCol);
+    if (!alreadyTrailed) trail.push({ row: robotRow, col: robotCol });
+    if (trail.length > 24) trail.shift();
+
+    robotRow = newRow;
+    robotCol = newCol;
+    if (newDir) direction = newDir;
+    stepCount++;
+
+    _render();
+    return true;
+  }
+
+  function reset() {
+    robotRow = 7;
+    robotCol = 0;
+    direction = 'NORTH';
+    trail = [];
+    stepCount = 0;
+    _render();
+  }
+
+  function getPosition() {
+    return { row: robotRow, col: robotCol, direction, steps: stepCount };
+  }
+
+  return { init, move, reset, getPosition };
+})();
