@@ -54,6 +54,8 @@
   <style>
     body { background-color: #fff; color: #111; }
     body.cli-open main > section:first-child { justify-content: flex-start; }
+    #doc-panel { transform: translateX(-100%); }
+    #doc-panel.doc-open { transform: translateX(0); }
     .cell { transition: background 150ms ease, border-color 150ms ease; }
     .cell.robot { animation: cell-glow 2s ease-in-out infinite; }
     @keyframes cell-glow {
@@ -76,7 +78,18 @@
   <!-- TOP BAR -->
   <header class="flex items-center justify-between px-3 sm:px-4 md:px-8 h-14 sm:h-16 bg-panel border-b border-border flex-shrink-0">
     <div class="flex items-center gap-3">
-     
+      <button
+        id="toggle-doc-btn"
+        type="button"
+        aria-expanded="false"
+        aria-controls="doc-panel"
+        aria-label="Open document panel"
+        class="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-md border border-border text-gray hover:text-black hover:border-gray transition-colors"
+      >
+        <svg viewBox="0 0 24 24" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
       <span class="text-2xl sm:text-xl font-extrabold tracking-wide sm:tracking-widest align-middle">ProjectAutomata</span>
     </div>
     <div class="flex items-center gap-2 sm:gap-4">
@@ -106,6 +119,15 @@
       </a>
     </div>
   </header>
+
+  <aside id="doc-panel" class="fixed top-14 sm:top-16 left-0 bottom-0 z-40 w-64 sm:w-72 border-r border-border bg-white shadow-lg transition-transform duration-200 ease-out">
+    <div class="px-4 py-3 border-b border-border bg-surface">
+      <span class="text-xs sm:text-sm font-bold uppercase tracking-widest text-gray">Panel</span>
+    </div>
+    <div class="px-4 py-3">
+      <a href="document.html" class="block rounded-md border border-border bg-panel px-3 py-2 text-sm sm:text-base font-semibold text-black hover:bg-surface transition-colors">Document</a>
+    </div>
+  </aside>
 
   <!-- MAIN -->
   <main class="flex flex-1 flex-col lg:flex-row overflow-hidden w-full min-h-0">

@@ -16,6 +16,24 @@
   const openCliBtn = document.getElementById('open-cli-btn');
   const closeCliBtn = document.getElementById('close-cli-btn');
   const cliInput = document.getElementById('cli-input');
+  const docPanel = document.getElementById('doc-panel');
+  const toggleDocBtn = document.getElementById('toggle-doc-btn');
+
+  function isDocOpen() {
+    return docPanel && docPanel.classList.contains('doc-open');
+  }
+
+  function openDocPanel() {
+    if (!docPanel) return;
+    docPanel.classList.add('doc-open');
+    if (toggleDocBtn) toggleDocBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeDocPanel() {
+    if (!docPanel) return;
+    docPanel.classList.remove('doc-open');
+    if (toggleDocBtn) toggleDocBtn.setAttribute('aria-expanded', 'false');
+  }
 
   function isCliOpen() {
     return cliPanel && cliPanel.classList.contains('cli-open');
@@ -85,8 +103,30 @@
     closeCliBtn.addEventListener('click', closeCli);
   }
 
+  if (toggleDocBtn && docPanel) {
+    toggleDocBtn.addEventListener('click', () => {
+      if (isDocOpen()) closeDocPanel();
+      else openDocPanel();
+    });
+
+    document.addEventListener('click', e => {
+      if (!isDocOpen()) return;
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (docPanel.contains(target) || toggleDocBtn.contains(target)) return;
+      closeDocPanel();
+    });
+  }
+
   document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (isCliOpen()) closeCli();
+      else openCli();
+      return;
+    }
     if (e.key === 'Escape' && isCliOpen()) closeCli();
+    if (e.key === 'Escape' && isDocOpen()) closeDocPanel();
   });
 
   if (cliInput) {
