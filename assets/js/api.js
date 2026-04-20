@@ -1,5 +1,5 @@
 const API = (() => {
-  const VALID = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'START', 'STOP', 'PICK', 'DROP', 'RECHARGE', 'RESET'];
+  const VALID = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'START', 'STOP', 'PICK', 'DROP', 'RECHARGE', 'RESET', 'END'];
 
   function _delay() {
     return new Promise(r => setTimeout(r, 80 + Math.random() * 160));

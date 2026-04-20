@@ -8,6 +8,7 @@ const Grid = (() => {
   let direction = 'NORTH';
   let stepCount = 0;
   let carrying = false;
+  let placedItem = null;
 
   const DIR_ASSET = {
     NORTH: 'assets/up.png',
@@ -55,10 +56,24 @@ const Grid = (() => {
       const icon = cell.querySelector('.robot-icon');
       const dot  = cell.querySelector('.trail-dot');
       const cargo = cell.querySelector('.robot-cargo');
+      const item = cell.querySelector('.placed-item-icon');
       if (icon) icon.remove();
       if (dot)  dot.remove();
       if (cargo) cargo.remove();
+      if (item) item.remove();
     });
+
+    // Render placed item first so robot can appear above it.
+    if (placedItem) {
+      const itemCell = _getCell(placedItem.row, placedItem.col);
+      if (itemCell) {
+        const itemIcon = document.createElement('img');
+        itemIcon.src = 'assets/item.png';
+        itemIcon.alt = 'Placed item';
+        itemIcon.className = 'placed-item-icon w-8 h-8 md:w-11 md:h-11 object-contain opacity-95';
+        itemCell.appendChild(itemIcon);
+      }
+    }
 
     // Render trail
     trail.forEach(({ row, col }) => {
@@ -121,7 +136,51 @@ const Grid = (() => {
     trail = [];
     stepCount = 0;
     carrying = false;
+    placedItem = null;
     _render();
+  }
+
+  function placeItem(x, y) {
+    if (!Number.isInteger(x) || !Number.isInteger(y)) {
+      return { ok: false, reason: 'Coordinates must be integers.' };
+    }
+    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
+      return { ok: false, reason: 'Coordinates must be between 0 and 7.' };
+    }
+
+    const row = ROWS - 1 - y;
+    const col = x;
+
+    if (row === robotRow && col === robotCol) {
+      return { ok: false, reason: 'Cannot place item on the robot position.' };
+    }
+
+    placedItem = { row, col };
+    _render();
+    return { ok: true };
+  }
+
+  function pickItemAtRobot() {
+    if (!placedItem) {
+      return { ok: false, reason: 'No item on grid to pick.' };
+    }
+    if (placedItem.row !== robotRow || placedItem.col !== robotCol) {
+      return { ok: false, reason: 'Move robot onto the item to pick it.' };
+    }
+
+    placedItem = null;
+    _render();
+    return { ok: true };
+  }
+
+  function dropItemAtRobot() {
+    if (placedItem) {
+      return { ok: false, reason: 'Grid already has an item. Pick or move it first.' };
+    }
+
+    placedItem = { row: robotRow, col: robotCol };
+    _render();
+    return { ok: true };
   }
 
   function getPosition() {
@@ -137,5 +196,5 @@ const Grid = (() => {
     return carrying;
   }
 
-  return { init, move, reset, getPosition, setCarrying, isCarrying };
+  return { init, move, reset, getPosition, setCarrying, isCarrying, placeItem, pickItemAtRobot, dropItemAtRobot };
 })();
