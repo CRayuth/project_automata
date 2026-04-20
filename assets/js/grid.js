@@ -30,7 +30,7 @@ const Grid = (() => {
 
         // Subtle coord label
         const label = document.createElement('span');
-        label.className = 'absolute bottom-[3px] right-[4px] text-[8px] font-mono text-neutral-800 leading-none select-none';
+        label.className = 'absolute bottom-[3px] right-[4px] text-[10px] font-mono text-neutral-700 leading-none select-none';
         label.textContent = `${c},${ROWS - 1 - r}`;
         cell.appendChild(label);
 
