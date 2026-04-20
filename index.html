@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ROBO-NAV — Navigation Control System</title>
+  <title>ProjectAutomata</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script>
@@ -15,12 +15,23 @@
             mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
-            bg:      '#0A0A0A',
-            panel:   '#111111',
-            surface: '#1A1A1A',
-            card:    '#141414',
-            border:  '#222222',
-            'border-hi': '#333333',
+            bg:      '#fff',
+            panel:   '#f7f7f7',
+            surface: '#fdfdfd',
+            card:    '#fff',
+            border:  '#d1d5db',
+            'border-hi': '#b0b4ba',
+            black:    '#111',
+            white:    '#fff',
+            gray:     '#444',
+          },
+          fontSize: {
+            xs: ['0.85rem', '1.2'],
+            sm: ['1rem', '1.4'],
+            base: ['1.15rem', '1.5'],
+            lg: ['1.35rem', '1.5'],
+            xl: ['1.7rem', '1.2'],
+            '2xl': ['2.2rem', '1.1'],
           },
           animation: {
             'pulse-dot': 'pulse-dot 2s ease-in-out infinite',
@@ -41,7 +52,7 @@
     }
   </script>
   <style>
-    body { background-color: #0A0A0A; }
+    body { background-color: #fff; color: #111; }
     .cell { transition: background 150ms ease, border-color 150ms ease; }
     .cell.robot { animation: cell-glow 2s ease-in-out infinite; }
     @keyframes cell-glow {
@@ -59,142 +70,153 @@
     input:focus { outline: none; }
   </style>
 </head>
-<body class="text-white font-sans flex flex-col min-h-screen">
+  <body class="text-black font-sans flex flex-col min-h-screen bg-bg">
 
   <!-- TOP BAR -->
-  <header class="flex items-center justify-between px-5 h-12 bg-panel border-b border-border flex-shrink-0">
+  <header class="flex items-center justify-between px-4 md:px-8 h-16 bg-panel border-b border-border flex-shrink-0">
     <div class="flex items-center gap-3">
-      <span class="text-sm font-bold tracking-widest">ProjectAutomata</span>
+     
+      <span class="text-xl font-extrabold tracking-widest align-middle">ProjectAutomata</span>
     </div>
     <div class="flex items-center gap-4">
-      <span id="clock" class="text-xs font-mono text-neutral-600"></span>
+      <span id="clock" class="text-base font-mono text-gray"></span>
+      <a
+        href="https://github.com/CRayuth/project_automata"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Open GitHub profile"
+        class="inline-flex items-center justify-center w-9 h-9 rounded-md border border-border text-gray hover:text-black hover:border-gray transition-colors"
+      >
+        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.486 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.343-3.369-1.343-.455-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.03-2.688-.103-.253-.447-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.547 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.31.678.921.678 1.857 0 1.339-.012 2.419-.012 2.747 0 .269.18.58.688.481A10.02 10.02 0 0 0 22 12.017C22 6.486 17.523 2 12 2z"/>
+        </svg>
+      </a>
     </div>
   </header>
 
   <!-- MAIN -->
-  <main class="flex flex-1 overflow-hidden">
+  <main class="flex flex-1 flex-col lg:flex-row overflow-auto w-full">
 
     <!-- LEFT: Grid -->
-    <section class="flex-1 flex flex-col items-center justify-center border-r border-border bg-panel">
+    <section class="flex-1 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-border bg-panel py-6 md:py-8 w-full">
 
-      <div class="flex-1 flex items-center justify-center p-8">
+      <div class="flex-1 flex items-center justify-center p-2 md:p-6 lg:p-8 w-full">
         <div id="grid-container"
-          class="grid gap-[3px] bg-surface border border-border p-[3px] rounded-lg"
-          style="grid-template-columns: repeat(8, 56px); grid-template-rows: repeat(8, 56px);">
+          class="grid gap-[4px] md:gap-[6px] bg-surface border border-border p-2 md:p-4 rounded-2xl shadow-lg w-full max-w-[95vw] md:max-w-[700px]"
+          style="grid-template-columns: repeat(8, minmax(32px, 1fr)); grid-template-rows: repeat(8, minmax(32px, 1fr)); min-width:0; min-height:0; aspect-ratio: 1 / 1;">
         </div>
       </div>
 
       <!-- Coord bar -->
-      <div class="w-full flex items-center justify-center border-t border-border bg-panel px-6 py-3">
-        <div class="flex items-center divide-x divide-border">
-          <div class="flex items-center gap-2 px-5">
-            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">X</span>
-            <span id="coord-x" class="text-sm font-bold font-mono min-w-[2rem]">0</span>
+      <div class="w-full border-t border-border bg-panel px-2 md:px-8 py-2 md:py-4">
+        <div class="mx-auto grid w-full max-w-3xl grid-cols-2 sm:grid-cols-4 border border-border overflow-hidden">
+          <div class="flex items-center justify-center gap-2 px-3 py-2 md:py-3 border-r border-b sm:border-b-0 border-border">
+            <span class="text-base font-bold font-mono uppercase tracking-widest text-gray">X</span>
+            <span id="coord-x" class="text-lg font-extrabold font-mono min-w-[2.5rem]">0</span>
           </div>
-          <div class="flex items-center gap-2 px-5">
-            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">Y</span>
-            <span id="coord-y" class="text-sm font-bold font-mono min-w-[2rem]">0</span>
+          <div class="flex items-center justify-center gap-2 px-3 py-2 md:py-3 border-b sm:border-b-0 sm:border-r border-border">
+            <span class="text-base font-bold font-mono uppercase tracking-widest text-gray">Y</span>
+            <span id="coord-y" class="text-lg font-extrabold font-mono min-w-[2.5rem]">0</span>
           </div>
-          <div class="flex items-center gap-2 px-5">
-            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">DIR</span>
-            <span id="coord-dir" class="text-sm font-bold font-mono min-w-[3.5rem]">NORTH</span>
+          <div class="flex items-center justify-center gap-2 px-3 py-2 md:py-3 border-r border-border">
+            <span class="text-base font-bold font-mono uppercase tracking-widest text-gray">DIR</span>
+            <span id="coord-dir" class="text-lg font-extrabold font-mono min-w-[4rem]">NORTH</span>
           </div>
-          <div class="flex items-center gap-2 px-5">
-            <span class="text-[10px] font-semibold font-mono uppercase tracking-widest text-neutral-600">STEPS</span>
-            <span id="coord-steps" class="text-sm font-bold font-mono min-w-[2rem]">0</span>
+          <div class="flex items-center justify-center gap-2 px-3 py-2 md:py-3">
+            <span class="text-base font-bold font-mono uppercase tracking-widest text-gray">STEPS</span>
+            <span id="coord-steps" class="text-lg font-extrabold font-mono min-w-[2.5rem]">0</span>
           </div>
         </div>
       </div>
     </section>
 
     <!-- RIGHT: Sidebar -->
-    <aside class="w-80 flex flex-col bg-panel">
+    <aside class="w-full lg:w-96 flex flex-col bg-panel flex-shrink-0">
 
       <!-- Stat cards -->
       <div class="border-b border-border">
-        <div class="px-4 py-3 border-b border-border">
-          <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">Unit Status</span>
+        <div class="px-6 py-4 border-b border-border">
+          <span class="text-lg font-extrabold uppercase tracking-widest text-gray">Unit Status</span>
         </div>
-        <div class="grid grid-cols-2 divide-x divide-y divide-border">
-          <div class="p-3 bg-card">
-            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Battery</div>
-            <div id="stat-battery" class="text-lg font-bold font-mono text-green-400 mb-2">87%</div>
-            <div class="h-[3px] bg-border rounded-full overflow-hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border p-px">
+          <div class="p-5 bg-card">
+            <div class="text-base uppercase tracking-widest text-gray mb-2">Battery</div>
+            <div id="stat-battery" class="text-2xl font-extrabold font-mono text-green-500 mb-3">87%</div>
+            <div class="h-[6px] bg-border rounded-full overflow-hidden">
               <div id="battery-fill" class="h-full bg-green-500 rounded-full transition-all" style="width:87%"></div>
             </div>
           </div>
-          <div class="p-3 bg-card">
-            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Signal</div>
-            <div class="text-lg font-bold font-mono text-green-400 mb-2">95%</div>
-            <div class="h-[3px] bg-border rounded-full overflow-hidden">
+          <div class="p-5 bg-card">
+            <div class="text-base uppercase tracking-widest text-gray mb-2">Signal</div>
+            <div class="text-2xl font-extrabold font-mono text-green-500 mb-3">95%</div>
+            <div class="h-[6px] bg-border rounded-full overflow-hidden">
               <div class="h-full bg-green-500 rounded-full" style="width:95%"></div>
             </div>
           </div>
-          <div class="p-3 bg-card">
-            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Commands</div>
-            <div id="stat-cmds" class="text-lg font-bold font-mono">0</div>
+          <div class="p-5 bg-card">
+            <div class="text-base uppercase tracking-widest text-gray mb-2">Commands</div>
+            <div id="stat-cmds" class="text-2xl font-extrabold font-mono">0</div>
           </div>
-          <div class="p-3 bg-card">
-            <div class="text-[10px] uppercase tracking-widest text-neutral-600 mb-1">Errors</div>
-            <div id="stat-errs" class="text-lg font-bold font-mono text-red-400">0</div>
+          <div class="p-5 bg-card">
+            <div class="text-base uppercase tracking-widest text-gray mb-2">Errors</div>
+            <div id="stat-errs" class="text-2xl font-extrabold font-mono text-red-500">0</div>
           </div>
         </div>
       </div>
 
       <!-- Command input -->
-      <div class="border-b border-border p-4 flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">Command Input</span>
-          <span class="text-[10px] text-neutral-700 font-mono">UP · DOWN · LEFT · RIGHT · RESET</span>
+      <div class="border-b border-border p-4 md:p-6 flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-lg font-extrabold uppercase tracking-wide text-gray">Command Input</span>
+          <div class="flex flex-wrap gap-2 text-xs md:text-sm font-mono text-gray">
+            <span class="px-2 py-1 rounded-md bg-surface border border-border">UP</span>
+            <span class="px-2 py-1 rounded-md bg-surface border border-border">DOWN</span>
+            <span class="px-2 py-1 rounded-md bg-surface border border-border">LEFT</span>
+            <span class="px-2 py-1 rounded-md bg-surface border border-border">RIGHT</span>
+            <span class="px-2 py-1 rounded-md bg-surface border border-border">RESET</span>
+          </div>
         </div>
 
-        <div class="flex items-center gap-2 bg-surface border border-border-hi rounded-lg px-3 focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.15)] transition-all">
-          <span class="text-neutral-600 font-mono text-base">›</span>
+        <div class="flex items-center gap-3 bg-surface border border-border-hi rounded-xl px-4 focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.15)] transition-all">
+          <span class="text-gray font-mono text-xl">›</span>
           <input
             id="cmd-input"
             type="text"
-            class="flex-1 bg-transparent text-white font-mono text-[13px] py-2 caret-blue-500"
+            class="flex-1 bg-transparent text-black font-mono text-lg py-3 caret-blue-500"
             placeholder="e.g. UP UP RIGHT DOWN"
             autocomplete="off"
             spellcheck="false"
           />
         </div>
 
-        <div class="flex gap-2">
-          <button id="run-btn" class="btn-run flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold py-2 rounded-lg transition-colors">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5l9 5.5-9 5.5V2.5z"/></svg>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button id="run-btn" class="btn-run w-full sm:flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-lg font-bold py-3 rounded-xl transition-colors shadow">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5l9 5.5-9 5.5V2.5z"/></svg>
             <span id="run-label">Execute</span>
           </button>
-          <button id="reset-btn" class="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white text-[13px] font-semibold px-4 py-2 rounded-lg transition-colors">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.5a.5.5 0 0 1 .5.5v2.793l1.646-1.647a.5.5 0 0 1 .708.708l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5a.5.5 0 1 1 .708-.708L7.5 7.793V5a.5.5 0 0 1 .5-.5z"/></svg>
+          <button id="reset-btn" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white text-lg font-bold px-6 py-3 rounded-xl transition-colors shadow">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.5a.5.5 0 0 1 .5.5v2.793l1.646-1.647a.5.5 0 0 1 .708.708l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5a.5.5 0 1 1 .708-.708L7.5 7.793V5a.5.5 0 0 1 .5-.5z"/></svg>
             Reset
           </button>
         </div>
 
         <!-- D-pad -->
-        <div class="flex flex-col items-center gap-1 pt-1">
-          <div class="flex gap-1">
-            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm font-mono transition-all" data-cmd="UP">▲</button>
+        <div class="flex flex-col items-center gap-2 pt-3">
+          <div class="flex gap-2">
+            <button class="dpad-btn w-12 h-12 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-xl font-mono transition-all" data-cmd="UP">🔼</button>
           </div>
-          <div class="flex gap-1">
-            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm transition-all" data-cmd="LEFT">◄</button>
-            <button class="dpad-btn w-10 h-10 bg-card border border-border text-neutral-600 hover:bg-border-hi hover:text-white rounded-md text-xs transition-all" data-cmd="RESET">●</button>
-            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm transition-all" data-cmd="RIGHT">►</button>
+          <div class="flex gap-2">
+            <button class="dpad-btn w-12 h-12 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-xl transition-all" data-cmd="LEFT">◀️</button>
+            <button class="dpad-btn w-12 h-12 md:w-14 md:h-14 bg-card border border-border text-gray hover:bg-border-hi hover:text-black rounded-lg text-xl transition-all" data-cmd="RESET">🛑</button>
+            <button class="dpad-btn w-12 h-12 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-xl transition-all" data-cmd="RIGHT">▶️</button>
           </div>
-          <div class="flex gap-1">
-            <button class="dpad-btn w-10 h-10 bg-surface border border-border-hi text-neutral-400 hover:bg-border-hi hover:text-white rounded-md text-sm transition-all" data-cmd="DOWN">▼</button>
+          <div class="flex gap-2">
+            <button class="dpad-btn w-12 h-12 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-xl transition-all" data-cmd="DOWN">🔽</button>
           </div>
         </div>
       </div>
 
-      <!-- Log -->
-      <div class="flex flex-col flex-1 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-border">
-          <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">System Log</span>
-          <button id="clear-log" class="text-[11px] text-neutral-600 hover:text-neutral-400 transition-colors">Clear</button>
-        </div>
-        <div id="log-output" class="flex-1 overflow-y-auto py-2 font-mono text-[11px]"></div>
-      </div>
+
     </aside>
   </main>
 

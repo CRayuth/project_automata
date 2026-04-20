@@ -17,7 +17,7 @@ const Grid = (() => {
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const cell = document.createElement('div');
-        cell.className = 'cell w-14 h-14 bg-card border border-border rounded-[4px] flex items-center justify-center relative';
+        cell.className = 'cell w-full aspect-square bg-card border border-border rounded-[4px] flex items-center justify-center relative min-w-0';
         cell.dataset.row = r;
         cell.dataset.col = c;
 
@@ -66,13 +66,14 @@ const Grid = (() => {
     // Render robot
     const robotCell = _getCell(robotRow, robotCol);
     if (robotCell) {
-      robotCell.classList.add('robot', 'bg-[#0c1e42]', 'border-blue-500');
+      robotCell.classList.add('robot', 'border-blue-500');
       robotCell.style.boxShadow = '0 0 0 1px rgba(37,99,235,0.15)';
-      const icon = document.createElement('span');
-      icon.className = 'robot-icon text-xl text-blue-400 leading-none select-none';
-      icon.style.filter = 'drop-shadow(0 0 4px rgba(96,165,250,0.7))';
-      icon.textContent = DIR_ICON[direction] || '◉';
-      robotCell.appendChild(icon);
+        const icon = document.createElement('img');
+        icon.src = 'assets/vacuum-cleaner.png';
+        icon.alt = 'Vacuum Cleaner Robot';
+        icon.className = 'robot-icon w-6 h-6 md:w-10 md:h-10 object-contain drop-shadow';
+        icon.style.filter = 'drop-shadow(0 0 4px rgba(96,165,250,0.7))';
+        robotCell.appendChild(icon);
     }
 
     // Update HUD
