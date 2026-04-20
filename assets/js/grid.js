@@ -78,6 +78,7 @@ const Grid = (() => {
     // Render trail
     trail.forEach(({ row, col }) => {
       if (row === robotRow && col === robotCol) return;
+      if (placedItem && row === placedItem.row && col === placedItem.col) return;
       const cell = _getCell(row, col);
       if (!cell) return;
       cell.classList.add('trail', 'bg-[#0E1829]', 'border-[#1a2d4a]');
