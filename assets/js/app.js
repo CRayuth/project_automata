@@ -7,53 +7,103 @@
 
   let cmdCount = 0;
   let errCount = 0;
-  let battery  = 87;
+  let energy = 3;
+  let isRunning = true;
+  let isHolding = false;
 
-  // Clock
-  const clockEl = document.getElementById('clock');
-  function tick() { clockEl.textContent = new Date().toTimeString().slice(0, 8); }
-  tick(); setInterval(tick, 1000);
+  // CLI panel
+  const cliPanel = document.getElementById('cli-panel');
+  const openCliBtn = document.getElementById('open-cli-btn');
+  const closeCliBtn = document.getElementById('close-cli-btn');
+  const cliInput = document.getElementById('cli-input');
 
-  // Battery drain
-  setInterval(() => {
-    battery = Math.max(0, battery - Math.random() * 0.25);
-    const pct = Math.round(battery);
-    document.getElementById('stat-battery').textContent = pct + '%';
-    document.getElementById('stat-battery').className =
-      `text-lg font-bold font-mono mb-2 ${pct < 20 ? 'text-red-400' : pct < 50 ? 'text-yellow-400' : 'text-green-400'}`;
-    document.getElementById('battery-fill').style.width = pct + '%';
-    document.getElementById('battery-fill').style.background =
-      pct < 20 ? '#ef4444' : pct < 50 ? '#eab308' : '#22c55e';
-  }, 3500);
+  function isCliOpen() {
+    return cliPanel && cliPanel.classList.contains('cli-open');
+  }
+
+  function openCli() {
+    if (!cliPanel) return;
+    cliPanel.classList.remove('hidden');
+    document.body.classList.add('cli-open');
+    cliPanel.classList.add('cli-open');
+    if (openCliBtn) openCliBtn.setAttribute('aria-expanded', 'true');
+    if (cliInput) cliInput.focus();
+  }
+
+  function closeCli() {
+    if (!cliPanel) return;
+    if (openCliBtn) openCliBtn.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('cli-open');
+    cliPanel.classList.remove('cli-open');
+    window.setTimeout(() => {
+      if (cliPanel && !isCliOpen()) cliPanel.classList.add('hidden');
+    }, 200);
+  }
+
+  updateEnergyUI();
+  updateHoldingUI();
+  updateModeUI();
 
   // ── Events ────────────────────────────────────
-  document.getElementById('run-btn').addEventListener('click', handleRun);
+  document.getElementById('run-btn').addEventListener('click', () => handleRun('START'));
   document.getElementById('reset-btn').addEventListener('click', () => {
     Grid.reset();
+    isRunning = true;
+    isHolding = false;
+    energy = 3;
+    updateHoldingUI();
+    updateEnergyUI();
+    updateModeUI();
     log('Manual reset — origin (0,0).', 'warn');
   });
-  document.getElementById('cmd-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') handleRun();
-  });
-  document.getElementById('clear-log').addEventListener('click', () => {
-    document.getElementById('log-output').innerHTML = '';
-    log('Log cleared.', 'dim');
-  });
+  const clearLogBtn = document.getElementById('clear-log');
+  if (clearLogBtn) {
+    clearLogBtn.addEventListener('click', () => {
+      const logOut = document.getElementById('log-output');
+      if (logOut) logOut.innerHTML = '';
+      log('Log cleared.', 'dim');
+    });
+  }
   document.querySelectorAll('.dpad-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = document.getElementById('cmd-input');
+    btn.addEventListener('click', async () => {
+      const runBtn = document.getElementById('run-btn');
+      if (runBtn && runBtn.disabled) return;
       const cmd = btn.dataset.cmd;
-      input.value = input.value.trim() ? `${input.value.trim()} ${cmd}` : cmd;
-      input.focus();
+      if (!cmd) return;
+      await handleRun(cmd);
     });
   });
 
+  if (openCliBtn && cliPanel) {
+    openCliBtn.addEventListener('click', () => {
+      if (isCliOpen()) closeCli();
+      else openCli();
+    });
+  }
+
+  if (closeCliBtn && cliPanel) {
+    closeCliBtn.addEventListener('click', closeCli);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isCliOpen()) closeCli();
+  });
+
+  if (cliInput) {
+    cliInput.addEventListener('keydown', async e => {
+      if (e.key !== 'Enter') return;
+      const value = cliInput.value.trim();
+      if (!value) return;
+      await handleRun(value);
+      cliInput.value = '';
+    });
+  }
+
   // ── Run handler ───────────────────────────────
-  async function handleRun() {
-    const input   = document.getElementById('cmd-input');
+  async function handleRun(rawInput = 'START') {
     const runBtn  = document.getElementById('run-btn');
     const runLabel = document.getElementById('run-label');
-    const raw = input.value.trim();
+    const raw = String(rawInput || '').trim();
 
     runBtn.disabled = true;
     runLabel.textContent = 'Sending…';
@@ -72,7 +122,6 @@
           log(`Ignored: [${res.invalid.join(', ')}]`, 'warn');
         }
         await runSequence(res.commands);
-        input.value = '';
       }
     } catch (e) {
       log('FATAL: Unexpected error.', 'err');
@@ -92,11 +141,85 @@
   }
 
   function executeCmd(cmd) {
+    if (cmd === 'START') {
+      isRunning = true;
+      updateModeUI();
+      log('START → unit active', 'info');
+      return;
+    }
+
+    if (cmd === 'STOP') {
+      isRunning = false;
+      updateModeUI();
+      log('STOP → unit paused', 'warn');
+      return;
+    }
+
+    if (cmd === 'RECHARGE') {
+      energy = 3;
+      updateEnergyUI();
+      log('RECHARGE → energy restored to 3/3', 'ok');
+      return;
+    }
+
+    if (cmd === 'PICK') {
+      if (isHolding) {
+        log('PICK → already holding object', 'warn');
+        return;
+      }
+      if (!consumeEnergy(1)) {
+        errCount++;
+        document.getElementById('stat-errs').textContent = errCount;
+        log('PICK → blocked: no energy', 'err');
+        return;
+      }
+      isHolding = true;
+      Grid.setCarrying(true);
+      updateHoldingUI();
+      cmdCount++;
+      document.getElementById('stat-cmds').textContent = cmdCount;
+      log('PICK → object secured', 'ok');
+      return;
+    }
+
+    if (cmd === 'DROP') {
+      if (!isHolding) {
+        log('DROP → nothing to drop', 'warn');
+        return;
+      }
+      isHolding = false;
+      Grid.setCarrying(false);
+      updateHoldingUI();
+      cmdCount++;
+      document.getElementById('stat-cmds').textContent = cmdCount;
+      log('DROP → object released', 'ok');
+      return;
+    }
+
     if (cmd === 'RESET') {
       Grid.reset();
+      isRunning = true;
+      isHolding = false;
+      energy = 3;
+      updateHoldingUI();
+      updateEnergyUI();
+      updateModeUI();
       log('RESET → origin (0,0)', 'warn');
       return;
     }
+
+    if (!isRunning) {
+      log(`${cmd} → ignored: unit is stopped`, 'warn');
+      return;
+    }
+
+    if (energy < 1) {
+      errCount++;
+      document.getElementById('stat-errs').textContent = errCount;
+      log(`${cmd} → blocked: no energy (use RECHARGE)`, 'err');
+      return;
+    }
+
     const { row, col } = Grid.getPosition();
     const moves = {
       UP:    { dr: -1, dc:  0, dir: 'NORTH' },
@@ -109,6 +232,7 @@
 
     const moved = Grid.move(row + m.dr, col + m.dc, m.dir);
     if (moved) {
+      consumeEnergy(1);
       cmdCount++;
       document.getElementById('stat-cmds').textContent = cmdCount;
       const pos = Grid.getPosition();
@@ -131,11 +255,12 @@
 
   function log(msg, type = 'ok') {
     const out = document.getElementById('log-output');
+    if (!out) return;
     const ts  = new Date().toTimeString().slice(0, 8);
     const line = document.createElement('div');
     line.className = 'log-line flex gap-2 items-baseline px-4 py-[3px]';
     line.innerHTML = `
-      <span class="text-neutral-700 flex-shrink-0">[${ts}]</span>
+      <span class="text-neutral-700 shrink-0">[${ts}]</span>
       <span class="${COLOR[type] || COLOR.ok}">${escHtml(msg)}</span>
     `;
     out.appendChild(line);
@@ -145,5 +270,46 @@
 
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function consumeEnergy(units) {
+    if (energy < units) return false;
+    energy -= units;
+    updateEnergyUI();
+    return true;
+  }
+
+  function updateEnergyUI() {
+    const stat = document.getElementById('stat-energy');
+    const dots = [
+      document.getElementById('energy-dot-1'),
+      document.getElementById('energy-dot-2'),
+      document.getElementById('energy-dot-3'),
+    ];
+
+    if (stat) {
+      stat.textContent = `${energy}/3`;
+      stat.className = `text-2xl font-extrabold font-mono mb-3 ${energy === 0 ? 'text-red-500' : energy === 1 ? 'text-amber-500' : 'text-green-600'}`;
+    }
+
+    dots.forEach((dot, idx) => {
+      if (!dot) return;
+      const filled = idx < energy;
+      dot.className = `w-3 h-3 rounded-full ${filled ? 'bg-green-500' : 'bg-border'}`;
+    });
+  }
+
+  function updateHoldingUI() {
+    const indicator = document.getElementById('holding-indicator');
+    if (!indicator) return;
+    indicator.textContent = isHolding ? 'YES' : 'NO';
+    indicator.className = `inline-flex items-center px-2 py-0.5 rounded-md border border-border font-semibold ${isHolding ? 'bg-amber-100 text-amber-700' : 'bg-surface text-gray'}`;
+  }
+
+  function updateModeUI() {
+    const indicator = document.getElementById('mode-indicator');
+    if (!indicator) return;
+    indicator.textContent = isRunning ? 'RUNNING' : 'STOPPED';
+    indicator.className = `inline-flex items-center px-2 py-0.5 rounded-md border border-border font-semibold ${isRunning ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`;
   }
 })();

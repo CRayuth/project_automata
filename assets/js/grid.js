@@ -7,8 +7,14 @@ const Grid = (() => {
   let trail = [];
   let direction = 'NORTH';
   let stepCount = 0;
+  let carrying = false;
 
-  const DIR_ICON = { NORTH: '▲', SOUTH: '▼', EAST: '►', WEST: '◄' };
+  const DIR_ASSET = {
+    NORTH: 'assets/up.png',
+    SOUTH: 'assets/down.png',
+    EAST: 'assets/right.png',
+    WEST: 'assets/left.png',
+  };
 
   function init() {
     const container = document.getElementById('grid-container');
@@ -48,8 +54,10 @@ const Grid = (() => {
       // Remove dynamic children (icon / dot), keep label
       const icon = cell.querySelector('.robot-icon');
       const dot  = cell.querySelector('.trail-dot');
+      const cargo = cell.querySelector('.robot-cargo');
       if (icon) icon.remove();
       if (dot)  dot.remove();
+      if (cargo) cargo.remove();
     });
 
     // Render trail
@@ -69,11 +77,18 @@ const Grid = (() => {
       robotCell.classList.add('robot', 'border-blue-500');
       robotCell.style.boxShadow = '0 0 0 1px rgba(37,99,235,0.15)';
         const icon = document.createElement('img');
-        icon.src = 'assets/vacuum-cleaner.png';
-        icon.alt = 'Vacuum Cleaner Robot';
+        icon.src = DIR_ASSET[direction] || DIR_ASSET.NORTH;
+        icon.alt = `${direction} Robot`;
         icon.className = 'robot-icon w-6 h-6 md:w-10 md:h-10 object-contain drop-shadow';
         icon.style.filter = 'drop-shadow(0 0 4px rgba(96,165,250,0.7))';
         robotCell.appendChild(icon);
+
+      if (carrying) {
+        const cargo = document.createElement('span');
+        cargo.className = 'robot-cargo absolute top-1 left-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white';
+        cargo.title = 'Holding object';
+        robotCell.appendChild(cargo);
+      }
     }
 
     // Update HUD
@@ -105,6 +120,7 @@ const Grid = (() => {
     direction = 'NORTH';
     trail = [];
     stepCount = 0;
+    carrying = false;
     _render();
   }
 
@@ -112,5 +128,14 @@ const Grid = (() => {
     return { row: robotRow, col: robotCol, direction, steps: stepCount };
   }
 
-  return { init, move, reset, getPosition };
+  function setCarrying(value) {
+    carrying = Boolean(value);
+    _render();
+  }
+
+  function isCarrying() {
+    return carrying;
+  }
+
+  return { init, move, reset, getPosition, setCarrying, isCarrying };
 })();
