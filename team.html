@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>ProjectAutomata Team</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: {
+						display: ['Space Grotesk', 'sans-serif'],
+						mono: ['JetBrains Mono', 'monospace'],
+					},
+					colors: {
+						ink: '#0f172a',
+						steel: '#e5e7eb',
+						mist: '#f8fafc',
+						primary: '#2563eb',
+						sky: '#dbeafe',
+					},
+					boxShadow: {
+						card: '0 16px 40px rgba(15, 23, 42, 0.1)',
+					},
+				},
+			},
+		};
+	</script>
+	<style>
+		#side-panel { transform: translateX(-100%); }
+		#side-panel.panel-open { transform: translateX(0); }
+	</style>
+</head>
+<body class="min-h-screen bg-[radial-gradient(circle_at_top,_#dbeafe_0%,_#f8fafc_48%,_#ffffff_100%)] text-ink font-display">
+	<button
+		id="toggle-panel-btn"
+		type="button"
+		aria-expanded="false"
+		aria-controls="side-panel"
+		aria-label="Open navigation panel"
+		class="fixed top-4 left-4 z-50 inline-flex items-center justify-center w-10 h-10 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
+	>
+		<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+			<path d="M4 6h16M4 12h16M4 18h16"/>
+		</svg>
+	</button>
+
+	<aside id="side-panel" class="fixed top-0 left-0 bottom-0 z-40 w-64 sm:w-72 border-r border-slate-300 bg-white shadow-lg transition-transform duration-200 ease-out">
+		<div class="px-4 pt-16 pb-4 sm:pt-20 sm:pb-6 flex flex-col gap-2">
+			<a href="index.html" class="block rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm sm:text-base font-semibold text-slate-900 hover:bg-white transition-colors">Main Page</a>
+			<a href="document.html" class="block rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm sm:text-base font-semibold text-slate-900 hover:bg-white transition-colors">Document</a>
+			<a href="team.html" class="block rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm sm:text-base font-semibold text-slate-900 hover:bg-white transition-colors">Team</a>
+		</div>
+	</aside>
+
+	<main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-10 sm:py-14">
+		<header class="text-center mb-10 sm:mb-14">
+			<p class="inline-flex items-center rounded-full border border-primary/30 bg-sky px-4 py-1.5 text-xs sm:text-sm font-mono tracking-wide text-primary">ProjectAutomata</p>
+			<h1 class="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Project Team</h1>
+			<p class="mt-3 text-sm sm:text-base text-slate-600">Advisor and team members of ProjectAutomata.</p>
+		</header>
+
+		<section class="mb-10 sm:mb-14">
+			<h2 class="text-center text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Project Advisor</h2>
+			<article class="max-w-sm mx-auto rounded-2xl border border-steel bg-white shadow-card overflow-hidden">
+				<img src="assets/portfolio/valy_dona.jpg" alt="Portrait of Valy Dona" class="w-full h-72 object-cover" />
+				<div class="p-5 sm:p-6">
+					<p class="inline-flex rounded-full bg-primary px-3 py-1 text-xs sm:text-sm font-mono font-semibold text-white">Project Advisor</p>
+					<h3 class="mt-3 text-2xl font-bold">Valy Dona</h3>
+				</div>
+			</article>
+		</section>
+
+		<section class="mb-4 sm:mb-6">
+			<h2 class="text-center text-xl sm:text-2xl font-bold">Team Members</h2>
+		</section>
+
+		<section class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+			<article class="rounded-2xl border border-steel bg-white shadow-card overflow-hidden md:mt-8">
+				<img src="assets/portfolio/Chheng_Rayuth.jpg" alt="Portrait of Chheng Rayuth" class="w-full h-72 object-cover" />
+				<div class="p-5 sm:p-6">
+					<h2 class="text-xl font-bold">Chheng Rayuth</h2>
+					<p class="mt-2 text-sm text-slate-600">Student IDs: <span class="font-mono font-semibold text-slate-800">p20230001</span></p>
+				</div>
+			</article>
+
+			<article class="rounded-2xl border-2 border-primary bg-white shadow-card overflow-hidden ring-4 ring-sky/70 md:-mt-3">
+				<img src="assets/portfolio/vontey.jpg" alt="Portrait of Dim PonhakVontey" class="w-full h-80 object-cover" />
+				<div class="p-5 sm:p-6">
+					<p class="inline-flex rounded-full bg-primary px-3 py-1 text-xs sm:text-sm font-mono font-semibold text-white">Team Leader</p>
+					<h2 class="mt-3 text-2xl font-bold">Dim PonhakVontey</h2>
+					<p class="mt-2 text-sm text-slate-600">Student IDs: <span class="font-mono font-semibold text-slate-800">p20230003</span></p>
+				</div>
+			</article>
+
+			<article class="rounded-2xl border border-steel bg-white shadow-card overflow-hidden md:mt-8">
+				<img src="assets/portfolio/BaromPheaknith.JPG" alt="Portrait of Neth BaromPhaknith" class="w-full h-72 object-cover" />
+				<div class="p-5 sm:p-6">
+					<h2 class="text-xl font-bold">Neth BaromPhaknith</h2>
+					<p class="mt-2 text-sm text-slate-600">Student IDs: <span class="font-mono font-semibold text-slate-800">p20230002</span></p>
+				</div>
+			</article>
+		</section>
+	</main>
+
+	<script>
+		(() => {
+			const sidePanel = document.getElementById('side-panel');
+			const togglePanelBtn = document.getElementById('toggle-panel-btn');
+
+			function isPanelOpen() {
+				return sidePanel && sidePanel.classList.contains('panel-open');
+			}
+
+			function openPanel() {
+				if (!sidePanel) return;
+				sidePanel.classList.add('panel-open');
+				if (togglePanelBtn) togglePanelBtn.setAttribute('aria-expanded', 'true');
+			}
+
+			function closePanel() {
+				if (!sidePanel) return;
+				sidePanel.classList.remove('panel-open');
+				if (togglePanelBtn) togglePanelBtn.setAttribute('aria-expanded', 'false');
+			}
+
+			if (togglePanelBtn && sidePanel) {
+				togglePanelBtn.addEventListener('click', () => {
+					if (isPanelOpen()) closePanel();
+					else openPanel();
+				});
+
+				document.addEventListener('click', e => {
+					if (!isPanelOpen()) return;
+					const target = e.target;
+					if (!(target instanceof Node)) return;
+					if (sidePanel.contains(target) || togglePanelBtn.contains(target)) return;
+					closePanel();
+				});
+
+				document.addEventListener('keydown', e => {
+					if (e.key === 'Escape' && isPanelOpen()) closePanel();
+				});
+			}
+		})();
+	</script>
+</body>
+</html>
