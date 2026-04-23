@@ -1,7 +1,7 @@
 {
   "scripts": {
     "dev": "npx server -l 3000",
-    "build": "tailwindcss -i ./src/input.css -o ./src/output.css",
+    "build": "node -e \"console.log('No frontend build step required')\"",
     "start": "node server.js"
   },
   "dependencies": {

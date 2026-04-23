@@ -1,5 +1,22 @@
 const API = (() => {
-  const API_BASE_URL = 'http://localhost:8080/api/robot';
+  function getApiBaseUrl() {
+    const runtimeOverride = window.API_BASE_URL
+      || document.querySelector('meta[name="robot-api-base-url"]')?.content
+      || localStorage.getItem('robotApiBaseUrl');
+
+    if (runtimeOverride) {
+      return runtimeOverride.replace(/\/$/, '');
+    }
+
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (isLocalhost) {
+      return 'http://localhost:8080/api/robot';
+    }
+
+    return `${window.location.origin}/api/robot`;
+  }
+
+  const API_BASE_URL = getApiBaseUrl();
   
   const VALID = ['START', 'STOP', 'FORWARD', 'BACKWARD', 'LEFT', 'RIGHT', 'PICK', 'DROP', 'RECHARGE'];
 
