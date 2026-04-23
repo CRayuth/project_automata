@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
+const BACKEND_BASE_URL = (process.env.BACKEND_BASE_URL || '').replace(/\/$/, '');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -18,41 +19,117 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon',
 };
 
-const server = http.createServer((req, res) => {
-  console.log(`${req.method} ${req.url}`);
+const ROUTE_MAP = {
+  '/': '/index.html',
+  '/document': '/document.html',
+  '/team': '/team.html',
+};
 
-  // Default to index.html for root
-  let filePath = req.url === '/' ? '/index.html' : req.url;
-  
-  // Remove query strings
-  filePath = filePath.split('?')[0];
-  
-  const fullPath = path.join(__dirname, filePath);
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function proxyApi(req, res, pathname, search) {
+  if (!BACKEND_BASE_URL) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      message: 'Backend is not configured. Set BACKEND_BASE_URL in frontend service.'
+    }));
+    return;
+  }
+
+  const targetUrl = `${BACKEND_BASE_URL}${pathname}${search}`;
+
+  try {
+    const body = ['GET', 'HEAD'].includes(req.method || 'GET') ? undefined : await readRequestBody(req);
+    const backendResponse = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'Content-Type': req.headers['content-type'] || 'application/json',
+      },
+      body,
+    });
+
+    const text = await backendResponse.text();
+    res.writeHead(backendResponse.status, {
+      'Content-Type': backendResponse.headers.get('content-type') || 'application/json',
+      'Cache-Control': 'no-store',
+    });
+    res.end(text);
+  } catch (error) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      message: 'Unable to reach backend service.',
+      detail: error.message,
+    }));
+  }
+}
+
+function sendFile(res, relativePath) {
+  const normalized = path.normalize(relativePath).replace(/^([.][.][/\\])+/, '');
+  const fullPath = path.join(__dirname, normalized);
   const ext = path.extname(fullPath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
   fs.readFile(fullPath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        // File not found - serve index.html for SPA routing
-        fs.readFile(path.join(__dirname, 'index.html'), (err, indexContent) => {
-          if (err) {
-            res.writeHead(500);
-            res.end('Server Error');
-          } else {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(indexContent, 'utf-8');
-          }
-        });
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
       } else {
-        res.writeHead(500);
-        res.end('Server Error: ' + err.code);
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Server Error');
       }
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content, 'utf-8');
+      return;
     }
+
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(content, 'utf-8');
   });
+}
+
+const server = http.createServer(async (req, res) => {
+  const requestUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const pathname = requestUrl.pathname;
+  const search = requestUrl.search;
+
+  console.log(`${req.method} ${pathname}${search}`);
+
+  if (pathname.startsWith('/api/robot')) {
+    await proxyApi(req, res, pathname, search);
+    return;
+  }
+
+  if (pathname === '/index.html') {
+    res.writeHead(301, { Location: '/' });
+    res.end();
+    return;
+  }
+
+  if (pathname === '/document.html') {
+    res.writeHead(301, { Location: '/document' });
+    res.end();
+    return;
+  }
+
+  if (pathname === '/team.html') {
+    res.writeHead(301, { Location: '/team' });
+    res.end();
+    return;
+  }
+
+  if (ROUTE_MAP[pathname]) {
+    sendFile(res, ROUTE_MAP[pathname]);
+    return;
+  }
+
+  const staticPath = pathname === '/' ? '/index.html' : pathname;
+  sendFile(res, staticPath);
 });
 
 server.listen(PORT, () => {

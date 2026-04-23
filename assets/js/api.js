@@ -1,23 +1,14 @@
 const API = (() => {
   function getApiBaseUrl() {
     const isLocalhostPage = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const runtimeOverride = window.API_BASE_URL
-      || document.querySelector('meta[name="robot-api-base-url"]')?.content
-      || localStorage.getItem('robotApiBaseUrl');
-
-    if (runtimeOverride) {
-      const cleanedOverride = runtimeOverride.replace(/\/$/, '');
-      const pointsToLocalhost = /localhost|127\.0\.0\.1/.test(cleanedOverride);
-
-      // Ignore stale localhost override when app is running in production.
-      if (!isLocalhostPage && pointsToLocalhost) {
-        console.warn('Ignoring localhost API override on production host:', cleanedOverride);
-      } else {
-        return cleanedOverride;
-      }
-    }
 
     if (isLocalhostPage) {
+      const localOverride = window.API_BASE_URL
+        || document.querySelector('meta[name="robot-api-base-url"]')?.content
+        || localStorage.getItem('robotApiBaseUrl');
+      if (localOverride) {
+        return localOverride.replace(/\/$/, '');
+      }
       return 'http://localhost:8080/api/robot';
     }
 
