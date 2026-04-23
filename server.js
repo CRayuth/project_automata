@@ -3,7 +3,17 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const BACKEND_BASE_URL = (process.env.BACKEND_BASE_URL || '').replace(/\/$/, '');
+
+function normalizeBackendBaseUrl(raw) {
+  if (!raw) return '';
+  const trimmed = raw.trim().replace(/\/$/, '');
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Railway private networking values are often plain hostnames.
+  return `http://${trimmed}`;
+}
+
+const BACKEND_BASE_URL = normalizeBackendBaseUrl(process.env.BACKEND_BASE_URL || '');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -24,6 +34,7 @@ const ROUTE_MAP = {
   '/document': '/document.html',
   '/team': '/team.html',
 };
+
 
 function readRequestBody(req) {
   return new Promise((resolve, reject) => {
@@ -105,6 +116,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === '/favicon.ico') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   if (pathname === '/index.html') {
     res.writeHead(301, { Location: '/' });
     res.end();
@@ -135,4 +152,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT}`);
+  console.log(`Backend proxy target: ${BACKEND_BASE_URL || '(not configured)'}`);
 });
