@@ -1,15 +1,23 @@
 const API = (() => {
   function getApiBaseUrl() {
+    const isLocalhostPage = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const runtimeOverride = window.API_BASE_URL
       || document.querySelector('meta[name="robot-api-base-url"]')?.content
       || localStorage.getItem('robotApiBaseUrl');
 
     if (runtimeOverride) {
-      return runtimeOverride.replace(/\/$/, '');
+      const cleanedOverride = runtimeOverride.replace(/\/$/, '');
+      const pointsToLocalhost = /localhost|127\.0\.0\.1/.test(cleanedOverride);
+
+      // Ignore stale localhost override when app is running in production.
+      if (!isLocalhostPage && pointsToLocalhost) {
+        console.warn('Ignoring localhost API override on production host:', cleanedOverride);
+      } else {
+        return cleanedOverride;
+      }
     }
 
-    const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    if (isLocalhost) {
+    if (isLocalhostPage) {
       return 'http://localhost:8080/api/robot';
     }
 
@@ -96,7 +104,12 @@ const API = (() => {
       });
 
       if (!response.ok) {
-        return { success: false, steps: [], message: 'ERR: Simulation failed.' };
+        const errorText = await response.text().catch(() => 'Unknown server error');
+        return {
+          success: false,
+          steps: [],
+          message: `ERR: Simulation failed (${response.status}) ${errorText}`
+        };
       }
 
       const result = await response.json();
@@ -106,5 +119,5 @@ const API = (() => {
     }
   }
 
-  return { sendCommands, simulateCommands, VALID };
+  return { sendCommands, simulateCommands, VALID, BASE_URL: API_BASE_URL };
 })();

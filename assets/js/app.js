@@ -12,6 +12,7 @@
       log('System boot complete.', 'ok');
       log('Unit RX-9 ready. Awaiting commands.', 'info');
       log(`Valid: ${API.VALID.join(' · ')}`, 'dim');
+      log(`API: ${API.BASE_URL}`, 'dim');
     } catch (error) {
       console.error('Failed to initialize grid:', error);
     }
@@ -308,7 +309,7 @@
     const simResult = await API.simulateCommands(commandString);
 
     if (!simResult.success || !simResult.steps.length) {
-      log('Simulation failed.', 'err');
+      log(simResult.message || 'Simulation failed.', 'err');
       notifyToast('error', 'Command execution failed.', 'exec-failed', 1200);
       return;
     }
@@ -346,7 +347,7 @@
       if (commandBuffer[commandBuffer.length - 1] === cmd) {
         commandBuffer.pop();
       }
-      log(`${cmd} failed.`, 'err');
+      log(`${cmd} failed. ${simResult.message || ''}`.trim(), 'err');
       errCount++;
       document.getElementById('stat-errs').textContent = errCount;
       notifyToast('error', 'Command rejected.', 'cmd-rejected', 1200);
