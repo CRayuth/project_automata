@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>ProjectAutomata Document</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: {
+						sans: ['Inter', 'system-ui', 'sans-serif'],
+						mono: ['JetBrains Mono', 'monospace'],
+					},
+					colors: {
+						ink: '#0f172a',
+						steel: '#e5e7eb',
+						mist: '#f8fafc',
+						primary: '#2563eb',
+						sky: '#dbeafe',
+					},
+					boxShadow: {
+						card: '0 16px 40px rgba(15, 23, 42, 0.1)',
+					},
+				},
+			},
+		};
+	</script>
+	<style>
+		#side-panel { transform: translateX(-100%); }
+		#side-panel.panel-open { transform: translateX(0); }
+		#document-submenu { max-height: 0; overflow: hidden; transition: max-height 0.2s ease; }
+		#document-submenu.open { max-height: 16rem; }
+	</style>
+</head>
+<body class="min-h-screen bg-[radial-gradient(circle_at_top,#dbeafe_0%,#f8fafc_48%,#ffffff_100%)] text-ink font-sans">
+	<button
+		id="toggle-panel-btn"
+		type="button"
+		aria-expanded="false"
+		aria-controls="side-panel"
+		aria-label="Open navigation panel"
+		class="fixed top-4 left-4 z-50 inline-flex items-center justify-center w-10 h-10 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
+	>
+		<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+			<path d="M4 6h16M4 12h16M4 18h16"/>
+		</svg>
+	</button>
+
+	<aside id="side-panel" class="fixed top-0 left-0 bottom-0 z-40 w-64 sm:w-72 border-r border-slate-300 bg-white shadow-lg transition-transform duration-200 ease-out">
+		<div class="px-4 pt-16 pb-4 sm:pt-20 sm:pb-6 flex flex-col gap-2">
+			<a href="index.html" class="block rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm sm:text-base font-semibold text-slate-900 hover:bg-white transition-colors">Main Page</a>
+			<a href="document.html" class="block rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm sm:text-base font-semibold text-slate-900 hover:bg-white transition-colors">Document</a>
+			<a href="team.html" class="block rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm sm:text-base font-semibold text-slate-900 hover:bg-white transition-colors">Team</a>
+		</div>
+	</aside>
+
+	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10 sm:py-14">
+		<header class="text-center mb-10 sm:mb-12">
+			<h1 class="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">ProjectAutomata</h1>
+			<p class="mt-3 text-sm sm:text-base text-slate-600 max-w-2xl mx-auto">
+				ProjectAutomata is a robot command project that uses a state-machine diagram to validate command flow, movement, object handling, and acceptance rules.
+			</p>
+		</header>
+
+		<div class="rounded-2xl border border-steel bg-white shadow-card overflow-hidden mb-8">
+			<div class="p-4 sm:p-6 border-b border-steel bg-mist">
+				<h2 class="text-xl sm:text-2xl font-bold">DFA Diagram</h2>
+			</div>
+			<div class="p-4 sm:p-6">
+				<img src="assets/NFA_Diagram_v1.png" alt="DFA diagram for ProjectAutomata" class="w-full h-auto rounded-xl border border-steel bg-white object-contain" />
+			</div>
+		</div>
+	</main>
+
+	<script>
+		(() => {
+			const sidePanel = document.getElementById('side-panel');
+			const togglePanelBtn = document.getElementById('toggle-panel-btn');
+
+
+			function isPanelOpen() {
+				return sidePanel && sidePanel.classList.contains('panel-open');
+			}
+
+			function openPanel() {
+				if (!sidePanel) return;
+				sidePanel.classList.add('panel-open');
+				if (togglePanelBtn) togglePanelBtn.setAttribute('aria-expanded', 'true');
+			}
+
+			function closePanel() {
+				if (!sidePanel) return;
+				sidePanel.classList.remove('panel-open');
+				if (togglePanelBtn) togglePanelBtn.setAttribute('aria-expanded', 'false');
+			}
+
+
+
+			if (togglePanelBtn && sidePanel) {
+				togglePanelBtn.addEventListener('click', () => {
+					if (isPanelOpen()) closePanel();
+					else openPanel();
+				});
+
+				document.addEventListener('click', e => {
+					if (!isPanelOpen()) return;
+					const target = e.target;
+					if (!(target instanceof Node)) return;
+					if (sidePanel.contains(target) || togglePanelBtn.contains(target)) return;
+					closePanel();
+				});
+
+				document.addEventListener('keydown', e => {
+					if (e.key === 'Escape' && isPanelOpen()) closePanel();
+				});
+			}
+		})();
+	</script>
+</body>
+</html>

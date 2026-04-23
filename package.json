@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "tailwindcss -i ./src/input.css -o ./src/output.css --watch",
+    "dev": "npx server -l 3000",
     "build": "tailwindcss -i ./src/input.css -o ./src/output.css"
   },
   "dependencies": {
