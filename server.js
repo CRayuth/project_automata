@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { URL } = require('url');
 
 const PORT = process.env.PORT || 3000;
 
@@ -14,6 +15,7 @@ function normalizeBackendBaseUrl(raw) {
 }
 
 const BACKEND_BASE_URL = normalizeBackendBaseUrl(process.env.BACKEND_BASE_URL || '');
+const BACKEND_FALLBACK_URL = normalizeBackendBaseUrl(process.env.BACKEND_FALLBACK_URL || '');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -54,31 +56,49 @@ async function proxyApi(req, res, pathname, search) {
     return;
   }
 
-  const targetUrl = `${BACKEND_BASE_URL}${pathname}${search}`;
+  const targets = [BACKEND_BASE_URL, BACKEND_FALLBACK_URL].filter(Boolean).map(base => `${base}${pathname}${search}`);
+  let lastError = null;
 
-  try {
-    const body = ['GET', 'HEAD'].includes(req.method || 'GET') ? undefined : await readRequestBody(req);
-    const backendResponse = await fetch(targetUrl, {
-      method: req.method,
-      headers: {
-        'Content-Type': req.headers['content-type'] || 'application/json',
-      },
-      body,
-    });
+  for (const targetUrl of targets) {
+    try {
+      const body = ['GET', 'HEAD'].includes(req.method || 'GET') ? undefined : await readRequestBody(req);
+      const backendResponse = await fetch(targetUrl, {
+        method: req.method,
+        headers: {
+          'Content-Type': req.headers['content-type'] || 'application/json',
+        },
+        body,
+      });
 
-    const text = await backendResponse.text();
-    res.writeHead(backendResponse.status, {
-      'Content-Type': backendResponse.headers.get('content-type') || 'application/json',
-      'Cache-Control': 'no-store',
-    });
-    res.end(text);
-  } catch (error) {
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      message: 'Unable to reach backend service.',
-      detail: error.message,
-    }));
+      const text = await backendResponse.text();
+      res.writeHead(backendResponse.status, {
+        'Content-Type': backendResponse.headers.get('content-type') || 'application/json',
+        'Cache-Control': 'no-store',
+      });
+      res.end(text);
+      return;
+    } catch (error) {
+      lastError = { error, targetUrl };
+      console.error('Proxy target failed:', targetUrl, error.message);
+    }
   }
+
+  const reason = lastError?.error?.cause?.code || lastError?.error?.code || lastError?.error?.message || 'unknown';
+  const targetHost = (() => {
+    try {
+      return new URL(lastError?.targetUrl || BACKEND_BASE_URL).host;
+    } catch {
+      return 'invalid-target';
+    }
+  })();
+
+  res.writeHead(502, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    message: 'Unable to reach backend service.',
+    detail: String(reason),
+    backendHost: targetHost,
+    hint: 'Verify both services are in the same Railway project for private networking, or set BACKEND_FALLBACK_URL to public backend URL.',
+  }));
 }
 
 function sendFile(res, relativePath) {
@@ -153,4 +173,5 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT}`);
   console.log(`Backend proxy target: ${BACKEND_BASE_URL || '(not configured)'}`);
+  console.log(`Backend proxy fallback: ${BACKEND_FALLBACK_URL || '(none)'}`);
 });
