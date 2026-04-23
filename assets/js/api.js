@@ -71,8 +71,6 @@ const API = (() => {
       return { success: false, steps: [], message: 'ERR: No valid commands.' };
     }
 
-    console.log('API: Sending simulation request:', commands);
-
     try {
       const response = await fetch(`${API_BASE_URL}/simulate`, {
         method: 'POST',
@@ -80,31 +78,16 @@ const API = (() => {
         body: JSON.stringify({ commands })
       });
 
-      console.log('API: Response status:', response.status);
-
       if (!response.ok) {
         return { success: false, steps: [], message: 'ERR: Simulation failed.' };
       }
 
       const result = await response.json();
-      console.log('API: Simulation result:', result);
       return { success: true, steps: result.steps, finalState: result.finalState, valid: result.valid };
     } catch (error) {
-      console.error('API: Simulation error:', error);
       return { success: false, steps: [], message: 'ERR: Backend connection failed.' };
     }
   }
 
-  async function getAlphabet() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/alphabet`);
-      if (!response.ok) return {};
-      const result = await response.json();
-      return result.commands || {};
-    } catch {
-      return {};
-    }
-  }
-
-  return { sendCommands, simulateCommands, getAlphabet, VALID };
+  return { sendCommands, simulateCommands, VALID };
 })();

@@ -20,7 +20,6 @@
   let errCount = 0;
   let energy = 3;
   let isPoweredOn = false;
-  let isRunning = false;
   let isHolding = false;
   let isCommandBusy = false;
   let commandBuffer = []; // Accumulate commands for sequence
@@ -343,7 +342,10 @@
     // Send the full accumulated sequence so backend simulates from correct state
     const simResult = await API.simulateCommands(commandBuffer.join(' '));
     
-    if (!simResult.success || !simResult.steps.length) {
+    if (!simResult.success || !simResult.steps.length || simResult.valid === false) {
+      if (commandBuffer[commandBuffer.length - 1] === cmd) {
+        commandBuffer.pop();
+      }
       log(`${cmd} failed.`, 'err');
       errCount++;
       document.getElementById('stat-errs').textContent = errCount;
@@ -370,7 +372,6 @@
     if (cmd === 'RESET') {
       Grid.reset();
       isPoweredOn = false;
-      isRunning = false;
       isHolding = false;
       energy = 3;
       cmdCount = 0;
@@ -391,7 +392,6 @@
         return;
       }
       isPoweredOn = true;
-      isRunning = true;
       commandBuffer = ['START'];
       updateStartButtonUI();
       notifyToast('success', 'Robot started. Enter commands and finish with STOP.', 'robot-started', 1200);
@@ -414,7 +414,6 @@
       
       // Reset state after execution
       isPoweredOn = false;
-      isRunning = false;
       commandBuffer = [];
       updateStartButtonUI();
       return;
@@ -426,7 +425,6 @@
         return;
       }
       isPoweredOn = false;
-      isRunning = false;
       isHolding = false;
       Grid.setCarrying(false);
       commandBuffer = [];
