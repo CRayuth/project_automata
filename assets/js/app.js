@@ -1,9 +1,20 @@
 (() => {
   // ── Init ──────────────────────────────────────
-  Grid.init();
-  log('System boot complete.', 'ok');
-  log('Unit RX-9 ready. Awaiting commands.', 'info');
-  log(`Valid: ${API.VALID.join(' · ')}`, 'dim');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+  } else {
+    initApp();
+  }
+
+  function initApp() {
+    try {
+      Grid.init();
+      log('System boot complete.', 'ok');
+      log('Unit RX-9 ready. Awaiting commands.', 'info');
+      log(`Valid: ${API.VALID.join(' · ')}`, 'dim');
+    } catch (error) {
+      console.error('Failed to initialize grid:', error);
+    }
 
   let cmdCount = 0;
   let errCount = 0;
@@ -12,6 +23,9 @@
   let isRunning = false;
   let isHolding = false;
   let isCommandBusy = false;
+  let commandBuffer = []; // Accumulate commands for sequence
+  const cliHistory = [];
+  let cliHistoryIndex = -1;
   const moveAudio = new Audio('assets/audio/sound_vaccum.mp3');
   moveAudio.preload = 'auto';
   let isAudioEnabled = true;
@@ -94,17 +108,16 @@
   }
 
   updateEnergyUI();
-  updateHoldingUI();
-  updateModeUI();
   updateAudioToggleUI();
   updateStartButtonUI();
 
   // ── Events ────────────────────────────────────
-  document.getElementById('run-btn').addEventListener('click', () => handleRun('START'));
-  document.getElementById('reset-btn').addEventListener('click', () => handleRun('RESET'));
+  document.getElementById('run-btn').addEventListener('click', () => executeCmd('START'));
+  document.getElementById('stop-btn').addEventListener('click', () => executeCmd('STOP'));
+  document.getElementById('reset-btn').addEventListener('click', () => executeCmd('RESET'));
   const endBtn = document.getElementById('end-btn');
   if (endBtn) {
-    endBtn.addEventListener('click', () => handleRun('END'));
+    endBtn.addEventListener('click', () => executeCmd('END'));
   }
   const clearLogBtn = document.getElementById('clear-log');
   if (clearLogBtn) {
@@ -119,7 +132,7 @@
       if (isCommandBusy) return;
       const cmd = btn.dataset.cmd;
       if (!cmd) return;
-      await handleRun(cmd);
+      await executeCmd(cmd);
     });
   });
 
@@ -194,10 +207,37 @@
 
   if (cliInput) {
     cliInput.addEventListener('keydown', async e => {
+      if (e.key === 'ArrowUp') {
+        if (!cliHistory.length) return;
+        e.preventDefault();
+        if (cliHistoryIndex < 0) cliHistoryIndex = cliHistory.length;
+        cliHistoryIndex = Math.max(0, cliHistoryIndex - 1);
+        cliInput.value = cliHistory[cliHistoryIndex] || '';
+        cliInput.setSelectionRange(cliInput.value.length, cliInput.value.length);
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        if (!cliHistory.length) return;
+        e.preventDefault();
+        if (cliHistoryIndex < 0) return;
+        if (cliHistoryIndex < cliHistory.length - 1) {
+          cliHistoryIndex += 1;
+          cliInput.value = cliHistory[cliHistoryIndex] || '';
+        } else {
+          cliHistoryIndex = cliHistory.length;
+          cliInput.value = '';
+        }
+        cliInput.setSelectionRange(cliInput.value.length, cliInput.value.length);
+        return;
+      }
+
       if (e.key !== 'Enter') return;
       const value = cliInput.value.trim();
       if (!value) return;
       await handleRun(value);
+      cliHistory.push(value);
+      cliHistoryIndex = cliHistory.length;
       cliInput.value = '';
     });
   }
@@ -210,7 +250,16 @@
 
     if (isCommandBusy) return;
 
-    // Fast-path UX: clicking START again should immediately inform user.
+    // Handle individual commands from CLI
+    const commands = upperRaw.split(/\s+/).filter(Boolean);
+    
+    // If it's a single command, execute it directly
+    if (commands.length === 1) {
+      await executeCmd(commands[0]);
+      return;
+    }
+
+    // Multiple commands - validate and run sequence
     if (upperRaw === 'START' && isPoweredOn) {
       notifyToast('info', 'START already active.', 'already-started-click', 0);
       log('START → ignored: robot already active', 'info');
@@ -221,7 +270,7 @@
 
     isCommandBusy = true;
     if (upperRaw === 'START' && !isPoweredOn && runLabel) {
-      runLabel.textContent = 'Sending…';
+      runLabel.textContent = 'Validating…';
     }
     log(`TX → "${raw || '(empty)'}"`, 'dim');
 
@@ -244,7 +293,7 @@
           log(`Ignored: [${res.invalid.join(', ')}]`, 'warn');
           notifyToast('warning', `Wrong command ignored: ${res.invalid.join(', ')}`, 'wrong-command', 1800);
         }
-        await runSequence(res.commands);
+        await runSequenceWithBackend(res.commands);
       }
     } catch (e) {
       log('FATAL: Unexpected error.', 'err');
@@ -255,131 +304,135 @@
     updateStartButtonUI();
   }
 
-  async function runSequence(commands) {
-    for (const cmd of commands) {
-      await new Promise(r => setTimeout(r, 190));
-      executeCmd(cmd);
+  async function runSequenceWithBackend(commands) {
+    const commandString = commands.join(' ');
+    const simResult = await API.simulateCommands(commandString);
+
+    if (!simResult.success || !simResult.steps.length) {
+      log('Simulation failed.', 'err');
+      notifyToast('error', 'Command execution failed.', 'exec-failed', 1200);
+      return;
     }
-    const pos = Grid.getPosition();
-    log(`Halt @ X:${pos.col} Y:${7 - pos.row} DIR:${pos.direction}`, 'info');
+
+    for (let i = 0; i < simResult.steps.length; i++) {
+      const step = simResult.steps[i];
+      await new Promise(r => setTimeout(r, 190));
+      
+      Grid.setPosition(step.x, step.y, step.heading);
+      energy = step.energy;
+      isHolding = step.carrying;
+      Grid.setCarrying(isHolding);
+      updateEnergyUI();
+      
+      log(`${step.command} → X:${step.x} Y:${step.y} DIR:${step.heading} E:${step.energy}`, 'info');
+    }
+
+    if (simResult.finalState) {
+      const phase = simResult.finalState.phase;
+      if (phase === 'ACCEPT') {
+        log('Sequence completed successfully.', 'ok');
+        notifyToast('success', 'Command sequence validated and executed.', 'sequence-complete', 1200);
+      } else if (phase === 'TRAP') {
+        log('Sequence rejected by DFA.', 'err');
+        notifyToast('error', 'Command sequence invalid.', 'sequence-invalid', 1200);
+      }
+    }
   }
 
-  function executeCmd(cmd) {
+  async function executeSingleCommand(cmd) {
+    // Send the full accumulated sequence so backend simulates from correct state
+    const simResult = await API.simulateCommands(commandBuffer.join(' '));
+    
+    if (!simResult.success || !simResult.steps.length) {
+      log(`${cmd} failed.`, 'err');
+      errCount++;
+      document.getElementById('stat-errs').textContent = errCount;
+      notifyToast('error', 'Command rejected.', 'cmd-rejected', 1200);
+      return;
+    }
+
+    // Get the last step (current command result)
+    const step = simResult.steps[simResult.steps.length - 1];
+    Grid.setPosition(step.x, step.y, step.heading);
+    energy = step.energy;
+    isHolding = step.carrying;
+    Grid.setCarrying(isHolding);
+    updateEnergyUI();
+    
+    cmdCount++;
+    document.getElementById('stat-cmds').textContent = cmdCount;
+    playMoveAudio();
+    
+    log(`${cmd} → X:${step.x} Y:${step.y} DIR:${step.heading} E:${step.energy}`, 'ok');
+  }
+
+  async function executeCmd(cmd) {
+    if (cmd === 'RESET') {
+      Grid.reset();
+      isPoweredOn = false;
+      isRunning = false;
+      isHolding = false;
+      energy = 3;
+      cmdCount = 0;
+      errCount = 0;
+      commandBuffer = [];
+      updateEnergyUI();
+      document.getElementById('stat-cmds').textContent = 0;
+      document.getElementById('stat-errs').textContent = 0;
+      updateStartButtonUI();
+      log('RESET → origin (0,0)', 'warn');
+      notifyToast('info', 'Robot reset to initial state.', 'reset', 800);
+      return;
+    }
+
     if (cmd === 'START') {
       if (isPoweredOn) {
         notifyToast('info', 'Robot already started.', 'already-started', 1200);
-        log('START → ignored: robot already active', 'info');
         return;
       }
       isPoweredOn = true;
       isRunning = true;
-      updateModeUI();
+      commandBuffer = ['START'];
       updateStartButtonUI();
-      notifyToast('success', 'Robot started. Commands enabled.', 'robot-started', 800);
-      log('START → unit active', 'info');
+      notifyToast('success', 'Robot started. Enter commands and finish with STOP.', 'robot-started', 1200);
+      log('START → unit active. Build your command sequence.', 'info');
+      return;
+    }
+
+    if (cmd === 'STOP') {
+      if (!isPoweredOn) {
+        notifyToast('warning', 'Robot is OFF. Start with START first.', 'start-required', 1200);
+        return;
+      }
+      
+      // Add STOP to buffer and validate full sequence
+      commandBuffer.push('STOP');
+      log(`STOP → Validating sequence: ${commandBuffer.join(' ')}`, 'info');
+      
+      // Validate and execute the full sequence
+      await runSequenceWithBackend([...commandBuffer]);
+      
+      // Reset state after execution
+      isPoweredOn = false;
+      isRunning = false;
+      commandBuffer = [];
+      updateStartButtonUI();
       return;
     }
 
     if (cmd === 'END') {
       if (!isPoweredOn) {
         notifyToast('info', 'Robot is already ended.', 'already-ended', 1200);
-        log('END → ignored: robot already inactive', 'info');
         return;
       }
       isPoweredOn = false;
       isRunning = false;
       isHolding = false;
       Grid.setCarrying(false);
-      updateHoldingUI();
-      updateModeUI();
+      commandBuffer = [];
       updateStartButtonUI();
       notifyToast('success', 'Robot ended. Send START to begin again.', 'robot-ended', 800);
       log('END → session closed', 'warn');
-      return;
-    }
-
-    if (cmd === 'STOP') {
-      isRunning = false;
-      updateModeUI();
-      log('STOP → unit paused', 'warn');
-      return;
-    }
-
-    if (cmd === 'RECHARGE') {
-      if (energy === 3) {
-        showToast('info', 'RECHARGE not needed: energy is already full (3/3).');
-        log('RECHARGE → already full (3/3)', 'info');
-        return;
-      }
-      energy = 3;
-      updateEnergyUI();
-      showToast('success', 'RECHARGE completed: energy restored to 3/3.');
-      log('RECHARGE → energy restored to 3/3', 'ok');
-      return;
-    }
-
-    if (cmd === 'PICK') {
-      if (isHolding) {
-        showToast('warning', 'PICK blocked: robot is already holding an item.');
-        log('PICK → already holding object', 'warn');
-        return;
-      }
-      const pickRes = Grid.pickItemAtRobot();
-      if (!pickRes.ok) {
-        showToast('warning', `PICK blocked: ${pickRes.reason}`);
-        log(`PICK → blocked: ${pickRes.reason}`, 'warn');
-        return;
-      }
-      if (!consumeEnergy(1)) {
-        errCount++;
-        document.getElementById('stat-errs').textContent = errCount;
-        // Revert pick when energy check fails.
-        Grid.dropItemAtRobot();
-        notifyToast('error', 'No energy left. Use RECHARGE.', 'no-energy', 1400);
-        log('PICK → blocked: no energy', 'err');
-        return;
-      }
-      isHolding = true;
-      Grid.setCarrying(true);
-      updateHoldingUI();
-      cmdCount++;
-      document.getElementById('stat-cmds').textContent = cmdCount;
-      showToast('success', 'PICK completed: item secured from current cell.');
-      log('PICK → object secured', 'ok');
-      return;
-    }
-
-    if (cmd === 'DROP') {
-      if (!isHolding) {
-        showToast('warning', 'DROP blocked: there is no item to drop.');
-        log('DROP → nothing to drop', 'warn');
-        return;
-      }
-      const dropRes = Grid.dropItemAtRobot();
-      if (!dropRes.ok) {
-        showToast('warning', `DROP blocked: ${dropRes.reason}`);
-        log(`DROP → blocked: ${dropRes.reason}`, 'warn');
-        return;
-      }
-      isHolding = false;
-      Grid.setCarrying(false);
-      updateHoldingUI();
-      cmdCount++;
-      document.getElementById('stat-cmds').textContent = cmdCount;
-      showToast('success', 'DROP completed: item placed on current cell.');
-      log('DROP → object released', 'ok');
-      return;
-    }
-
-    if (cmd === 'RESET') {
-      Grid.reset();
-      isRunning = isPoweredOn;
-      isHolding = false;
-      energy = 3;
-      updateHoldingUI();
-      updateEnergyUI();
-      updateModeUI();
-      log('RESET → origin (0,0)', 'warn');
       return;
     }
 
@@ -389,78 +442,59 @@
       return;
     }
 
-    if (!isRunning) {
-      log(`${cmd} → ignored: unit is stopped`, 'warn');
-      return;
-    }
-
-    if (energy < 1) {
-      errCount++;
-      document.getElementById('stat-errs').textContent = errCount;
-      log(`${cmd} → blocked: no energy (use RECHARGE)`, 'err');
-      notifyToast('error', 'No energy left. Use RECHARGE.', 'no-energy', 1400);
-      return;
-    }
-
-    const { row, col } = Grid.getPosition();
-    const moves = {
-      UP:    { dr: -1, dc:  0, dir: 'NORTH' },
-      DOWN:  { dr:  1, dc:  0, dir: 'SOUTH' },
-      LEFT:  { dr:  0, dc: -1, dir: 'WEST'  },
-      RIGHT: { dr:  0, dc:  1, dir: 'EAST'  },
-    };
-    const m = moves[cmd];
-    if (!m) return;
-
-    const moved = Grid.move(row + m.dr, col + m.dc, m.dir);
-    if (moved) {
-      consumeEnergy(1);
-      playMoveAudio();
+    // Handle PICK and DROP with grid item visualization
+    if (cmd === 'PICK') {
+      const pickRes = Grid.pickItemAtRobot();
+      if (!pickRes.ok) {
+        notifyToast('warning', `PICK blocked: ${pickRes.reason}`, 'pick-blocked', 1200);
+        log(`PICK → blocked: ${pickRes.reason}`, 'warn');
+        return;
+      }
+      isHolding = true;
+      Grid.setCarrying(true);
       cmdCount++;
       document.getElementById('stat-cmds').textContent = cmdCount;
-      const pos = Grid.getPosition();
-      log(`${cmd} → (${pos.col}, ${7 - pos.row})`, 'ok');
-    } else {
-      errCount++;
-      document.getElementById('stat-errs').textContent = errCount;
-      log(`${cmd} → blocked: boundary`, 'err');
-      notifyToast('error', 'Movement blocked by boundary.', 'boundary-error', 1400);
+      playMoveAudio();
+      log('PICK → item secured', 'ok');
+      notifyToast('success', 'Item picked up!', 'pick-success', 800);
+      commandBuffer.push(cmd);
+      return;
     }
+
+    if (cmd === 'DROP') {
+      if (!isHolding) {
+        notifyToast('warning', 'DROP blocked: not holding an item.', 'drop-blocked', 1200);
+        log('DROP → blocked: not holding item', 'warn');
+        return;
+      }
+      const dropRes = Grid.dropItemAtRobot();
+      if (!dropRes.ok) {
+        notifyToast('warning', `DROP blocked: ${dropRes.reason}`, 'drop-blocked', 1200);
+        log(`DROP → blocked: ${dropRes.reason}`, 'warn');
+        return;
+      }
+      isHolding = false;
+      Grid.setCarrying(false);
+      cmdCount++;
+      document.getElementById('stat-cmds').textContent = cmdCount;
+      playMoveAudio();
+      log('DROP → item placed', 'ok');
+      notifyToast('success', 'Item dropped!', 'drop-success', 800);
+      commandBuffer.push(cmd);
+      return;
+    }
+
+    // Accumulate command in buffer
+    commandBuffer.push(cmd);
+    log(`${cmd} → added to sequence`, 'dim');
+    
+    // Execute immediately for visual feedback
+    await executeSingleCommand(cmd);
   }
 
   // ── Logger ─────────────────────────────────────
-  const COLOR = {
-    ok:   'text-green-400',
-    err:  'text-red-400',
-    warn: 'text-yellow-400',
-    info: 'text-blue-400',
-    dim:  'text-neutral-600',
-  };
-
   function log(msg, type = 'ok') {
-    const out = document.getElementById('log-output');
-    if (!out) return;
-    const ts  = new Date().toTimeString().slice(0, 8);
-    const line = document.createElement('div');
-    line.className = 'log-line flex gap-2 items-baseline px-4 py-[3px]';
-    line.innerHTML = `
-      <span class="text-neutral-700 shrink-0">[${ts}]</span>
-      <span class="${COLOR[type] || COLOR.ok}">${escHtml(msg)}</span>
-    `;
-    out.appendChild(line);
-    out.scrollTop = out.scrollHeight;
-    while (out.children.length > 100) out.removeChild(out.firstChild);
-  }
-
-  function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  function consumeEnergy(units) {
-    if (energy < units) return false;
-    energy -= units;
-    updateEnergyUI();
-    return true;
+    console.log(`[${type.toUpperCase()}] ${msg}`);
   }
 
   function playMoveAudio() {
@@ -526,7 +560,7 @@
           stroke-linecap="round"
         ></path>
       </svg>
-      <p class="text-sm font-semibold">${style.label} - ${escHtml(message)}</p>
+      <p class="text-sm font-semibold">${style.label} - ${message}</p>
     `;
 
     host.prepend(toast);
@@ -577,27 +611,7 @@
     });
   }
 
-  function updateHoldingUI() {
-    const indicator = document.getElementById('holding-indicator');
-    if (!indicator) return;
-    indicator.textContent = isHolding ? 'YES' : 'NO';
-    indicator.className = `inline-flex items-center px-2 py-0.5 rounded-md border border-border font-semibold ${isHolding ? 'bg-amber-100 text-amber-700' : 'bg-surface text-gray'}`;
-  }
-
-  function updateModeUI() {
-    const indicator = document.getElementById('mode-indicator');
-    if (!indicator) return;
-    if (!isPoweredOn) {
-      indicator.textContent = 'OFFLINE';
-      indicator.className = 'inline-flex items-center px-2 py-0.5 rounded-md border border-border font-semibold bg-neutral-100 text-neutral-700';
-      return;
-    }
-    indicator.textContent = isRunning ? 'RUNNING' : 'STOPPED';
-    indicator.className = `inline-flex items-center px-2 py-0.5 rounded-md border border-border font-semibold ${isRunning ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`;
-  }
-
   function updateAudioToggleUI() {
-    if (!audioToggleBtn) return;
     audioToggleBtn.setAttribute('aria-pressed', String(isAudioEnabled));
     audioToggleBtn.setAttribute('aria-label', isAudioEnabled ? 'Turn movement sound off' : 'Turn movement sound on');
     if (audioOffSlash) {
@@ -626,5 +640,6 @@
     runBtn.classList.add('bg-blue-600', 'hover:bg-blue-500', 'text-white');
     runBtn.style.opacity = '';
     runLabel.textContent = 'START';
+  }
   }
 })();

@@ -114,18 +114,38 @@ const Grid = (() => {
     document.getElementById('coord-steps').textContent = stepCount;
   }
 
-  function move(newRow, newCol, newDir) {
-    if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) return false;
+  function _moveTo(row, col, dir) {
+    if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return false;
 
     const alreadyTrailed = trail.some(p => p.row === robotRow && p.col === robotCol);
     if (!alreadyTrailed) trail.push({ row: robotRow, col: robotCol });
     if (trail.length > 24) trail.shift();
 
-    robotRow = newRow;
-    robotCol = newCol;
-    if (newDir) direction = newDir;
+    robotRow = row;
+    robotCol = col;
+    if (dir && ['NORTH', 'SOUTH', 'EAST', 'WEST'].includes(dir.toUpperCase())) {
+      direction = dir.toUpperCase();
+    }
     stepCount++;
 
+    _render();
+    return true;
+  }
+
+  function setPosition(x, y, dir) {
+    const row = ROWS - 1 - y;
+    const col = x;
+
+    return _moveTo(row, col, dir);
+  }
+
+  function move(row, col, dir) {
+    return _moveTo(row, col, dir);
+  }
+
+  function turn(newDir) {
+    if (!newDir || newDir === direction) return false;
+    direction = newDir;
     _render();
     return true;
   }
@@ -197,5 +217,5 @@ const Grid = (() => {
     return carrying;
   }
 
-  return { init, move, reset, getPosition, setCarrying, isCarrying, placeItem, pickItemAtRobot, dropItemAtRobot };
+  return { init, move, turn, reset, getPosition, setPosition, setCarrying, isCarrying, placeItem, pickItemAtRobot, dropItemAtRobot };
 })();
