@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "npx server -l 3000",
+    "dev": "node server.js",
     "build": "node -e \"console.log('No frontend build step required')\"",
     "start": "node server.js"
   },
