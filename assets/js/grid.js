@@ -1,6 +1,7 @@
 const Grid = (() => {
   const ROWS = 8;
   const COLS = 8;
+  const ENERGY_MAX = 5;
   const BASE_MOVE_MS = 240;
   const MAX_TRACK_POINTS = 500;
   const ORIGIN_ROW = 7;
@@ -10,7 +11,7 @@ const Grid = (() => {
   let robotCol = ORIGIN_COL;
   let trail = [{ row: ORIGIN_ROW, col: ORIGIN_COL, moveIndex: 1, eventType: 'origin' }];
   let nextMoveIndex = 2;
-  let lastEnergyLevel = 3;
+  let lastEnergyLevel = ENERGY_MAX;
   let direction = 'NORTH';
   let stepCount = 0;
   let carrying = false;
@@ -269,13 +270,13 @@ const Grid = (() => {
     document.getElementById('coord-steps').textContent = stepCount;
   }
 
-  function getMoveDurationMs(energyLevel = 3) {
+  function getMoveDurationMs(energyLevel = ENERGY_MAX) {
     if (energyLevel <= 1) return BASE_MOVE_MS + 60;
     if (energyLevel === 2) return BASE_MOVE_MS + 20;
     return BASE_MOVE_MS;
   }
 
-  async function _moveTo(row, col, dir, energyLevel = 3) {
+  async function _moveTo(row, col, dir, energyLevel = ENERGY_MAX) {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return false;
 
     const fromRow = robotRow;
@@ -285,7 +286,7 @@ const Grid = (() => {
       : direction;
 
     if (animator) {
-      animator.setEnergy(Math.max(0, Math.min(1, energyLevel / 3)));
+      animator.setEnergy(Math.max(0, Math.min(1, energyLevel / ENERGY_MAX)));
       await animator.animateTo({
         row,
         col,
@@ -297,7 +298,7 @@ const Grid = (() => {
     if (!trail.length) {
       trail.push({ row: ORIGIN_ROW, col: ORIGIN_COL, moveIndex: 1, eventType: 'origin' });
       nextMoveIndex = 2;
-      lastEnergyLevel = 3;
+      lastEnergyLevel = ENERGY_MAX;
     }
 
     const moved = row !== fromRow || col !== fromCol;
@@ -321,14 +322,14 @@ const Grid = (() => {
     return true;
   }
 
-  async function setPosition(x, y, dir, energyLevel = 3) {
+  async function setPosition(x, y, dir, energyLevel = ENERGY_MAX) {
     const row = ROWS - 1 - y;
     const col = x;
 
     return _moveTo(row, col, dir, energyLevel);
   }
 
-  async function move(row, col, dir, energyLevel = 3) {
+  async function move(row, col, dir, energyLevel = ENERGY_MAX) {
     return _moveTo(row, col, dir, energyLevel);
   }
 
@@ -345,7 +346,7 @@ const Grid = (() => {
     direction = 'NORTH';
     trail = [{ row: ORIGIN_ROW, col: ORIGIN_COL, moveIndex: 1, eventType: 'origin' }];
     nextMoveIndex = 2;
-    lastEnergyLevel = 3;
+    lastEnergyLevel = ENERGY_MAX;
     stepCount = 0;
     carrying = false;
     placedItem = null;
@@ -368,7 +369,7 @@ const Grid = (() => {
         row: targetRow,
         col: targetCol,
         heading: targetDir,
-        durationMs: getMoveDurationMs(3),
+        durationMs: getMoveDurationMs(ENERGY_MAX),
       });
     }
 
@@ -377,7 +378,7 @@ const Grid = (() => {
     direction = targetDir;
     trail = [{ row: ORIGIN_ROW, col: ORIGIN_COL, moveIndex: 1, eventType: 'origin' }];
     nextMoveIndex = 2;
-    lastEnergyLevel = 3;
+    lastEnergyLevel = ENERGY_MAX;
     stepCount = 0;
     _render();
   }
@@ -471,7 +472,7 @@ const Grid = (() => {
 
   function updateEnergyFx(energyLevel) {
     if (!animator) return;
-    animator.setEnergy(Math.max(0, Math.min(1, energyLevel / 3)));
+      animator.setEnergy(Math.max(0, Math.min(1, energyLevel / ENERGY_MAX)));
   }
 
   function setTrailTrackingEnabled(enabled) {

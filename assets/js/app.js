@@ -17,9 +17,10 @@
       console.error('Failed to initialize grid:', error);
     }
 
+  const ENERGY_MAX = 5;
   let cmdCount = 0;
   let errCount = 0;
-  let energy = 3;
+  let energy = ENERGY_MAX;
   let isPoweredOn = false;
   let isHolding = false;
   let isCommandBusy = false;
@@ -309,9 +310,6 @@
     unlockMoveAudio();
 
     isCommandBusy = true;
-    if (upperRaw === 'START' && !isPoweredOn && runLabel) {
-      runLabel.textContent = 'Validating…';
-    }
     log(`TX → "${raw || '(empty)'}"`, 'dim');
 
     try {
@@ -354,7 +352,7 @@
       const reason = normalizeErrorMessage(simResult.message, 'Simulation failed.');
       log(`Sequence failed: ${reason}`, 'err');
       notifyToast('error', `Command execution failed: ${reason}`, 'exec-failed', 1200);
-      return;
+      return { ok: false, phase: 'TRAP' };
     }
 
     if (replaySteps) {
@@ -375,18 +373,23 @@
       if (phase === 'ACCEPT') {
         log('Sequence completed successfully.', 'ok');
         notifyToast('success', 'Command sequence validated and executed.', 'sequence-complete', 1200);
+        return { ok: true, phase };
       } else if (phase === 'TRAP') {
         log('Sequence rejected by DFA.', 'err');
         notifyToast('error', 'Command sequence invalid.', 'sequence-invalid', 1200);
+        return { ok: false, phase };
       }
     }
+
+    return { ok: Boolean(simResult.valid), phase: simResult.finalState?.phase || 'UNKNOWN' };
   }
 
   async function executeSingleCommand(cmd) {
     // Send the full accumulated sequence so backend simulates from correct state
     const simResult = await API.simulateCommands(commandBuffer.join(' '));
     
-    if (!simResult.success || !simResult.steps.length || simResult.valid === false) {
+    const finalPhase = simResult.finalState?.phase;
+    if (!simResult.success || !simResult.steps.length || finalPhase === 'TRAP') {
       if (commandBuffer[commandBuffer.length - 1] === cmd) {
         commandBuffer.pop();
       }
@@ -423,7 +426,7 @@
       Grid.reset();
       isPoweredOn = false;
       isHolding = false;
-      energy = 3;
+      energy = ENERGY_MAX;
       cmdCount = 0;
       errCount = 0;
       commandBuffer = [];
@@ -462,11 +465,16 @@
       log(`STOP → Validating sequence: ${commandBuffer.join(' ')}`, 'info');
       
       // Validate and execute the full sequence
-      await runSequenceWithBackend([...commandBuffer], { replaySteps: false });
+      const stopResult = await runSequenceWithBackend([...commandBuffer], { replaySteps: false });
+      if (!stopResult.ok) {
+        commandBuffer.pop();
+        await Grid.playErrorAnimation();
+        return;
+      }
       await Grid.returnToDefault();
       isHolding = false;
       Grid.setCarrying(false);
-      energy = 3;
+      energy = ENERGY_MAX;
       updateEnergyUI();
       
       // Reset state after execution
@@ -654,14 +662,10 @@
 
   function updateEnergyUI() {
     const stat = document.getElementById('stat-energy');
-    const dots = [
-      document.getElementById('energy-dot-1'),
-      document.getElementById('energy-dot-2'),
-      document.getElementById('energy-dot-3'),
-    ];
+    const dots = Array.from(document.querySelectorAll('[id^="energy-dot-"]'));
 
     if (stat) {
-      stat.textContent = `${energy}/3`;
+      stat.textContent = `${energy}/${ENERGY_MAX}`;
       stat.className = `text-2xl font-extrabold font-mono mb-3 ${energy === 0 ? 'text-red-500' : energy === 1 ? 'text-amber-500' : 'text-green-600'}`;
     }
 
@@ -675,6 +679,7 @@
   }
 
   function updateAudioToggleUI() {
+    if (!audioToggleBtn) return;
     audioToggleBtn.setAttribute('aria-pressed', String(isAudioEnabled));
     audioToggleBtn.setAttribute('aria-label', isAudioEnabled ? 'Turn movement sound off' : 'Turn movement sound on');
     if (audioOffSlash) {
