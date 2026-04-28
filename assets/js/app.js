@@ -58,15 +58,31 @@
   // CLI panel
   const cliPanel = document.getElementById('cli-panel');
   const openCliBtn = document.getElementById('open-cli-btn');
-  const closeCliBtn = document.getElementById('close-cli-btn');
   const cliInput = document.getElementById('cli-input');
   const docPanel = document.getElementById('doc-panel');
   const toggleDocBtn = document.getElementById('toggle-doc-btn');
   const audioToggleBtn = document.getElementById('audio-toggle-btn');
   const audioOffSlash = document.getElementById('audio-off-slash');
+  const toggleStatusBtn = document.getElementById('toggle-status-btn');
+  const unitStatusContent = document.getElementById('unit-status-content');
+  const toggleTrackBtn = document.getElementById('toggle-track-btn');
   const placeItemBtn = document.getElementById('place-item-btn');
   const placeXInput = document.getElementById('place-x-input');
   const placeYInput = document.getElementById('place-y-input');
+  let isStatusCollapsedMobile = false;
+
+  function normalizeErrorMessage(message, fallback = 'Command failed. Please try again.') {
+    const clean = String(message || '').replace(/^ERR:\s*/i, '').trim();
+    return clean || fallback;
+  }
+
+  function setPlaceInputError(input, hasError) {
+    if (!input) return;
+    input.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+    input.classList.toggle('border-red-500', hasError);
+    input.classList.toggle('ring-1', hasError);
+    input.classList.toggle('ring-red-300', hasError);
+  }
 
   function isDocOpen() {
     return docPanel && docPanel.classList.contains('doc-open');
@@ -110,23 +126,13 @@
   updateEnergyUI();
   updateAudioToggleUI();
   updateStartButtonUI();
+  updateTrackToggleUI();
+  updateStatusToggleUI();
 
   // ── Events ────────────────────────────────────
   document.getElementById('run-btn').addEventListener('click', () => executeCmd('START'));
   document.getElementById('stop-btn').addEventListener('click', () => executeCmd('STOP'));
   document.getElementById('reset-btn').addEventListener('click', () => executeCmd('RESET'));
-  const endBtn = document.getElementById('end-btn');
-  if (endBtn) {
-    endBtn.addEventListener('click', () => executeCmd('END'));
-  }
-  const clearLogBtn = document.getElementById('clear-log');
-  if (clearLogBtn) {
-    clearLogBtn.addEventListener('click', () => {
-      const logOut = document.getElementById('log-output');
-      if (logOut) logOut.innerHTML = '';
-      log('Log cleared.', 'dim');
-    });
-  }
   document.querySelectorAll('.dpad-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (isCommandBusy) return;
@@ -141,10 +147,6 @@
       if (isCliOpen()) closeCli();
       else openCli();
     });
-  }
-
-  if (closeCliBtn && cliPanel) {
-    closeCliBtn.addEventListener('click', closeCli);
   }
 
   if (toggleDocBtn && docPanel) {
@@ -169,17 +171,55 @@
     });
   }
 
+  if (toggleTrackBtn) {
+    toggleTrackBtn.addEventListener('click', () => {
+      const next = !Grid.getTrailTrackingEnabled();
+      Grid.setTrailTrackingEnabled(next);
+      updateTrackToggleUI();
+    });
+  }
+
+  if (toggleStatusBtn && unitStatusContent) {
+    toggleStatusBtn.addEventListener('click', () => {
+      isStatusCollapsedMobile = !isStatusCollapsedMobile;
+      updateStatusToggleUI();
+    });
+    window.addEventListener('resize', updateStatusToggleUI);
+  }
+
   if (placeItemBtn && placeXInput && placeYInput) {
     const placeFromInput = () => {
       if (isHolding) {
         notifyToast('warning', 'Cannot place a new item while robot is holding one.', 'place-item-while-holding', 1000);
         return;
       }
-      const x = Number.parseInt(placeXInput.value, 10);
-      const y = Number.parseInt(placeYInput.value, 10);
+      const xRaw = placeXInput.value.trim();
+      const yRaw = placeYInput.value.trim();
+
+      setPlaceInputError(placeXInput, false);
+      setPlaceInputError(placeYInput, false);
+
+      if (!xRaw || !yRaw) {
+        setPlaceInputError(placeXInput, !xRaw);
+        setPlaceInputError(placeYInput, !yRaw);
+        const missing = !xRaw && !yRaw ? 'X and Y' : (!xRaw ? 'X' : 'Y');
+        const msg = `Place Item failed: ${missing} coordinate is required.`;
+        notifyToast('warning', msg, 'place-item-required', 700);
+        log(msg, 'warn');
+        Grid.playErrorAnimation();
+        return;
+      }
+
+      const x = Number.parseInt(xRaw, 10);
+      const y = Number.parseInt(yRaw, 10);
       const res = Grid.placeItem(x, y);
       if (!res.ok) {
-        notifyToast('warning', res.reason || 'Invalid coordinates.', 'place-item-invalid', 700);
+        setPlaceInputError(placeXInput, !Number.isInteger(x) || x < 0 || x > 7);
+        setPlaceInputError(placeYInput, !Number.isInteger(y) || y < 0 || y > 7);
+        const reason = res.reason || 'Invalid coordinates.';
+        notifyToast('warning', `Place Item failed: ${reason}`, 'place-item-invalid', 700);
+        log(`PLACE ITEM → blocked: ${reason}`, 'warn');
+        Grid.playErrorAnimation();
         return;
       }
       notifyToast('success', `Item placed at (${x}, ${y}).`, 'place-item-success', 300);
@@ -282,10 +322,11 @@
         errCount++;
         document.getElementById('stat-errs').textContent = errCount;
         const invalidInMessage = /no valid commands/i.test(res.message);
+        const uiMsg = normalizeErrorMessage(res.message, 'Command rejected by validation.');
         if (invalidInMessage) {
-          notifyToast('warning', res.message.replace(/^ERR:\s*/, ''), 'wrong-command', 1800);
+          notifyToast('warning', `Command failed: ${uiMsg}`, 'wrong-command', 1800);
         } else {
-          notifyToast('error', res.message.replace(/^ERR:\s*/, ''), 'api-error', 1800);
+          notifyToast('error', `Command failed: ${uiMsg}`, 'api-error', 1800);
         }
       } else {
         log(res.message, 'ok');
@@ -304,27 +345,29 @@
     updateStartButtonUI();
   }
 
-  async function runSequenceWithBackend(commands) {
+  async function runSequenceWithBackend(commands, options = {}) {
+    const replaySteps = options.replaySteps !== false;
     const commandString = commands.join(' ');
     const simResult = await API.simulateCommands(commandString);
 
     if (!simResult.success || !simResult.steps.length) {
-      log(simResult.message || 'Simulation failed.', 'err');
-      notifyToast('error', 'Command execution failed.', 'exec-failed', 1200);
+      const reason = normalizeErrorMessage(simResult.message, 'Simulation failed.');
+      log(`Sequence failed: ${reason}`, 'err');
+      notifyToast('error', `Command execution failed: ${reason}`, 'exec-failed', 1200);
       return;
     }
 
-    for (let i = 0; i < simResult.steps.length; i++) {
-      const step = simResult.steps[i];
-      await new Promise(r => setTimeout(r, 190));
-      
-      Grid.setPosition(step.x, step.y, step.heading);
-      energy = step.energy;
-      isHolding = step.carrying;
-      Grid.setCarrying(isHolding);
-      updateEnergyUI();
-      
-      log(`${step.command} → X:${step.x} Y:${step.y} DIR:${step.heading} E:${step.energy}`, 'info');
+    if (replaySteps) {
+      for (let i = 0; i < simResult.steps.length; i++) {
+        const step = simResult.steps[i];
+        await Grid.setPosition(step.x, step.y, step.heading, step.energy);
+        energy = step.energy;
+        isHolding = step.carrying;
+        Grid.setCarrying(isHolding);
+        updateEnergyUI();
+        
+        log(`${step.command} → X:${step.x} Y:${step.y} DIR:${step.heading} E:${step.energy}`, 'info');
+      }
     }
 
     if (simResult.finalState) {
@@ -347,16 +390,18 @@
       if (commandBuffer[commandBuffer.length - 1] === cmd) {
         commandBuffer.pop();
       }
-      log(`${cmd} failed. ${simResult.message || ''}`.trim(), 'err');
+      const reason = normalizeErrorMessage(simResult.message, `${cmd} was rejected.`);
+      log(`${cmd} failed: ${reason}`, 'err');
       errCount++;
       document.getElementById('stat-errs').textContent = errCount;
-      notifyToast('error', 'Command rejected.', 'cmd-rejected', 1200);
+      notifyToast('error', `${cmd} failed: ${reason}`, 'cmd-rejected', 1200);
+      await Grid.playErrorAnimation();
       return;
     }
 
     // Get the last step (current command result)
     const step = simResult.steps[simResult.steps.length - 1];
-    Grid.setPosition(step.x, step.y, step.heading);
+    await Grid.setPosition(step.x, step.y, step.heading, step.energy);
     energy = step.energy;
     isHolding = step.carrying;
     Grid.setCarrying(isHolding);
@@ -365,6 +410,10 @@
     cmdCount++;
     document.getElementById('stat-cmds').textContent = cmdCount;
     playMoveAudio();
+
+    if (cmd === 'RECHARGE') {
+      await Grid.playRechargeAnimation();
+    }
     
     log(`${cmd} → X:${step.x} Y:${step.y} DIR:${step.heading} E:${step.energy}`, 'ok');
   }
@@ -390,6 +439,7 @@
     if (cmd === 'START') {
       if (isPoweredOn) {
         notifyToast('info', 'Robot already started.', 'already-started', 1200);
+        Grid.playErrorAnimation();
         return;
       }
       isPoweredOn = true;
@@ -403,6 +453,7 @@
     if (cmd === 'STOP') {
       if (!isPoweredOn) {
         notifyToast('warning', 'Robot is OFF. Start with START first.', 'start-required', 1200);
+        Grid.playErrorAnimation();
         return;
       }
       
@@ -411,7 +462,12 @@
       log(`STOP → Validating sequence: ${commandBuffer.join(' ')}`, 'info');
       
       // Validate and execute the full sequence
-      await runSequenceWithBackend([...commandBuffer]);
+      await runSequenceWithBackend([...commandBuffer], { replaySteps: false });
+      await Grid.returnToDefault();
+      isHolding = false;
+      Grid.setCarrying(false);
+      energy = 3;
+      updateEnergyUI();
       
       // Reset state after execution
       isPoweredOn = false;
@@ -438,6 +494,7 @@
     if (!isPoweredOn) {
       notifyToast('warning', 'Robot is OFF. Start with START first.', 'start-required', 1200);
       log(`${cmd} → blocked: START required`, 'warn');
+      Grid.playErrorAnimation();
       return;
     }
 
@@ -447,6 +504,7 @@
       if (!pickRes.ok) {
         notifyToast('warning', `PICK blocked: ${pickRes.reason}`, 'pick-blocked', 1200);
         log(`PICK → blocked: ${pickRes.reason}`, 'warn');
+        await Grid.playErrorAnimation();
         return;
       }
       isHolding = true;
@@ -457,6 +515,7 @@
       log('PICK → item secured', 'ok');
       notifyToast('success', 'Item picked up!', 'pick-success', 800);
       commandBuffer.push(cmd);
+      await Grid.playPickAnimation();
       return;
     }
 
@@ -464,12 +523,14 @@
       if (!isHolding) {
         notifyToast('warning', 'DROP blocked: not holding an item.', 'drop-blocked', 1200);
         log('DROP → blocked: not holding item', 'warn');
+        await Grid.playErrorAnimation();
         return;
       }
       const dropRes = Grid.dropItemAtRobot();
       if (!dropRes.ok) {
         notifyToast('warning', `DROP blocked: ${dropRes.reason}`, 'drop-blocked', 1200);
         log(`DROP → blocked: ${dropRes.reason}`, 'warn');
+        await Grid.playErrorAnimation();
         return;
       }
       isHolding = false;
@@ -480,6 +541,7 @@
       log('DROP → item placed', 'ok');
       notifyToast('success', 'Item dropped!', 'drop-success', 800);
       commandBuffer.push(cmd);
+      await Grid.playDropAnimation();
       return;
     }
 
@@ -608,6 +670,8 @@
       const filled = idx < energy;
       dot.className = `w-3 h-3 rounded-full ${filled ? 'bg-green-500' : 'bg-border'}`;
     });
+
+    Grid.updateEnergyFx(energy);
   }
 
   function updateAudioToggleUI() {
@@ -621,6 +685,7 @@
   function updateStartButtonUI() {
     const runBtn = document.getElementById('run-btn');
     const runLabel = document.getElementById('run-label');
+    const runIndicator = document.getElementById('run-indicator');
     if (!runBtn || !runLabel) return;
 
     if (isPoweredOn) {
@@ -629,7 +694,8 @@
       runBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'text-white');
       runBtn.classList.add('bg-gray-300', 'hover:bg-gray-300', 'cursor-not-allowed', 'text-gray-800');
       runBtn.style.opacity = '1';
-      runLabel.textContent = 'START';
+      runLabel.textContent = 'RUNNING';
+      if (runIndicator) runIndicator.classList.remove('hidden');
       return;
     }
 
@@ -639,6 +705,29 @@
     runBtn.classList.add('bg-blue-600', 'hover:bg-blue-500', 'text-white');
     runBtn.style.opacity = '';
     runLabel.textContent = 'START';
+    if (runIndicator) runIndicator.classList.add('hidden');
+  }
+
+  function updateTrackToggleUI() {
+    if (!toggleTrackBtn) return;
+    const enabled = Grid.getTrailTrackingEnabled();
+    toggleTrackBtn.setAttribute('aria-pressed', String(enabled));
+    toggleTrackBtn.textContent = enabled ? 'TRACK PATH: ON' : 'TRACK PATH: OFF';
+    toggleTrackBtn.classList.toggle('bg-blue-50', enabled);
+    toggleTrackBtn.classList.toggle('text-blue-700', enabled);
+    toggleTrackBtn.classList.toggle('border-blue-300', enabled);
+    toggleTrackBtn.classList.toggle('bg-surface', !enabled);
+    toggleTrackBtn.classList.toggle('text-gray', !enabled);
+    toggleTrackBtn.classList.toggle('border-border-hi', !enabled);
+  }
+
+  function updateStatusToggleUI() {
+    if (!toggleStatusBtn || !unitStatusContent) return;
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    const shouldCollapse = isMobile && isStatusCollapsedMobile;
+    unitStatusContent.classList.toggle('hidden', shouldCollapse);
+    toggleStatusBtn.setAttribute('aria-expanded', String(!shouldCollapse));
+    toggleStatusBtn.textContent = shouldCollapse ? 'Show' : 'Hide';
   }
   }
 })();
