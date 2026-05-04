@@ -27,7 +27,7 @@
   let commandBuffer = []; // Accumulate commands for sequence
   const cliHistory = [];
   let cliHistoryIndex = -1;
-  const moveAudio = new Audio('assets/audio/sound_vaccum.mp3');
+  const moveAudio = new Audio('assets/audio/beep.wav');
   moveAudio.preload = 'auto';
   let isAudioEnabled = true;
   let isMoveAudioUnlocked = false;
@@ -422,6 +422,9 @@
   }
 
   async function executeCmd(cmd) {
+    // Ensure audio is unlocked from any direct user action path.
+    unlockMoveAudio();
+
     if (cmd === 'RESET') {
       Grid.reset();
       isPoweredOn = false;

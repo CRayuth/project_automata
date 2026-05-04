@@ -6,6 +6,7 @@
   <title>ProjectAutomata</title>
   <link rel="stylesheet" href="/src/output.css" />
   <link rel="stylesheet" href="assets/css/robot-animations.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script>
@@ -157,6 +158,7 @@
         <div class="hidden lg:block absolute right-6 bottom-4 pointer-events-none">
           <img src="assets/robot.png" alt="ProjectAutomata robot assistant" class="w-28 xl:w-36 h-auto object-contain select-none" />
         </div>
+        <div id="toast-stack" class="fixed right-3 top-20 z-50 w-[min(22rem,calc(100vw-1.5rem))] space-y-2 pointer-events-none lg:absolute lg:right-4 lg:bottom-56 lg:top-auto lg:w-72"></div>
       </div>
 
       <!-- Coord bar -->
@@ -211,7 +213,7 @@
             </div>
           </div>
           <div class="p-3 md:p-5 bg-card">
-            <div class="text-base uppercase tracking-widest text-black mb-2">Commands</div>
+            <div class="text-base uppercase tracking-widest text-black mb-2">Command</div>
             <div id="stat-cmds" class="text-2xl font-extrabold font-mono">0</div>
           </div>
           <div class="p-3 md:p-5 bg-card">
@@ -227,15 +229,15 @@
         <!-- D-pad -->
         <div class="flex flex-col items-center gap-2.5 pt-2 rounded-xl border border-border bg-card p-3 shadow-sm">
           <div class="flex gap-2">
-            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl font-mono transition-all" data-cmd="FORWARD">🔼</button>
+            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl font-mono transition-all" data-cmd="FORWARD"><i class="fa-regular fa-circle-up"></i></button>
           </div>
           <div class="flex gap-2">
-            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="LEFT">◀️</button>
-            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-card border border-border text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="RESET">🛑</button>
-            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="RIGHT">▶️</button>
+            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="LEFT"><i class="fa-regular fa-circle-left"></i></button>
+            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-card border border-border text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="RESET"><i class="fa-regular fa-circle-stop"></i></button>
+            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="RIGHT"><i class="fa-regular fa-circle-right"></i></button>
           </div>
           <div class="flex gap-2">
-            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="BACKWARD">🔽</button>
+            <button class="dpad-btn w-11 h-11 md:w-14 md:h-14 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-lg md:text-xl transition-all" data-cmd="BACKWARD"><i class="fa-regular fa-circle-down"></i></button>
           </div>
           <div class="grid grid-cols-3 gap-2 w-full pt-0.5">
             <button class="dpad-btn w-full h-9 md:h-10 bg-surface border border-border-hi text-gray hover:bg-border-hi hover:text-black rounded-lg text-sm font-bold transition-all" data-cmd="PICK">PICK</button>
@@ -294,9 +296,6 @@
       </div>
     </div>
   </section>
-
-  <div id="toast-stack" class="fixed right-3 sm:right-4 top-[4.25rem] sm:top-[5rem] z-50 w-[min(24rem,calc(100vw-1.5rem))] space-y-2 pointer-events-none"></div>
-
 
   <script src="assets/js/robot-animator.js"></script>
   <script src="assets/js/grid.js"></script>
