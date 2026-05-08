@@ -127,6 +127,7 @@
   updateEnergyUI();
   updateAudioToggleUI();
   updateStartButtonUI();
+  updateStopButtonUI();
   updateTrackToggleUI();
   updateStatusToggleUI();
 
@@ -341,6 +342,7 @@
 
     isCommandBusy = false;
     updateStartButtonUI();
+    updateStopButtonUI();
   }
 
   async function runSequenceWithBackend(commands, options = {}) {
@@ -358,7 +360,9 @@
     if (replaySteps) {
       for (let i = 0; i < simResult.steps.length; i++) {
         const step = simResult.steps[i];
-        await Grid.setPosition(step.x, step.y, step.heading, step.energy);
+        const cmd = (step.command || '').toUpperCase();
+        const stepEventType = cmd === 'PICK' ? 'pick' : cmd === 'DROP' ? 'drop' : null;
+        await Grid.setPosition(step.x, step.y, step.heading, step.energy, stepEventType);
         energy = step.energy;
         isHolding = step.carrying;
         Grid.setCarrying(isHolding);
@@ -437,6 +441,7 @@
       document.getElementById('stat-cmds').textContent = 0;
       document.getElementById('stat-errs').textContent = 0;
       updateStartButtonUI();
+      updateStopButtonUI();
       log('RESET → origin (0,0)', 'warn');
       notifyToast('info', 'Robot reset to initial state.', 'reset', 800);
       return;
@@ -451,6 +456,7 @@
       isPoweredOn = true;
       commandBuffer = ['START'];
       updateStartButtonUI();
+      updateStopButtonUI();
       notifyToast('success', 'Robot started. Enter commands and finish with STOP.', 'robot-started', 1200);
       log('START → unit active. Build your command sequence.', 'info');
       return;
@@ -484,6 +490,7 @@
       isPoweredOn = false;
       commandBuffer = [];
       updateStartButtonUI();
+      updateStopButtonUI();
       return;
     }
 
@@ -497,6 +504,7 @@
       Grid.setCarrying(false);
       commandBuffer = [];
       updateStartButtonUI();
+      updateStopButtonUI();
       notifyToast('success', 'Robot ended. Send START to begin again.', 'robot-ended', 800);
       log('END → session closed', 'warn');
       return;
@@ -527,6 +535,7 @@
       notifyToast('success', 'Item picked up!', 'pick-success', 800);
       commandBuffer.push(cmd);
       await Grid.playPickAnimation();
+      Grid.recordTrailEvent('pick');
       return;
     }
 
@@ -553,6 +562,7 @@
       notifyToast('success', 'Item dropped!', 'drop-success', 800);
       commandBuffer.push(cmd);
       await Grid.playDropAnimation();
+      Grid.recordTrailEvent('drop');
       return;
     }
 
@@ -714,6 +724,25 @@
     runBtn.style.opacity = '';
     runLabel.textContent = 'START';
     if (runIndicator) runIndicator.classList.add('hidden');
+  }
+
+  function updateStopButtonUI() {
+    const stopBtn = document.getElementById('stop-btn');
+    if (!stopBtn) return;
+
+    if (isPoweredOn) {
+      stopBtn.disabled = false;
+      stopBtn.setAttribute('aria-disabled', 'false');
+      stopBtn.classList.remove('bg-gray-300', 'hover:bg-gray-300', 'cursor-not-allowed', 'text-gray-800');
+      stopBtn.classList.add('bg-amber-600', 'hover:bg-amber-500', 'text-white');
+      stopBtn.style.opacity = '';
+    } else {
+      stopBtn.disabled = true;
+      stopBtn.setAttribute('aria-disabled', 'true');
+      stopBtn.classList.remove('bg-amber-600', 'hover:bg-amber-500', 'text-white');
+      stopBtn.classList.add('bg-gray-300', 'hover:bg-gray-300', 'cursor-not-allowed', 'text-gray-800');
+      stopBtn.style.opacity = '1';
+    }
   }
 
   function updateTrackToggleUI() {

@@ -100,6 +100,8 @@ const Grid = (() => {
       move: { stroke: '#2563eb', text: '#1d4ed8' },
       turn: { stroke: '#dc2626', text: '#b91c1c' },
       recharge: { stroke: '#059669', text: '#047857' },
+      pick: { stroke: '#7c3aed', text: '#6d28d9' },
+      drop: { stroke: '#ea580c', text: '#c2410c' },
       state: { stroke: '#d97706', text: '#b45309' },
     };
 
@@ -276,7 +278,7 @@ const Grid = (() => {
     return BASE_MOVE_MS;
   }
 
-  async function _moveTo(row, col, dir, energyLevel = ENERGY_MAX) {
+  async function _moveTo(row, col, dir, energyLevel = ENERGY_MAX, eventTypeOverride = null) {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return false;
 
     const fromRow = robotRow;
@@ -304,7 +306,8 @@ const Grid = (() => {
     const moved = row !== fromRow || col !== fromCol;
     const turnedOnly = !moved && nextDirection !== direction;
     const recharged = !moved && energyLevel > lastEnergyLevel;
-    const eventType = moved ? 'move' : (recharged ? 'recharge' : (turnedOnly ? 'turn' : 'state'));
+    const autoEventType = moved ? 'move' : (recharged ? 'recharge' : (turnedOnly ? 'turn' : 'state'));
+    const eventType = eventTypeOverride || autoEventType;
 
     trail.push({ row, col, moveIndex: nextMoveIndex, eventType });
     nextMoveIndex += 1;
@@ -322,11 +325,19 @@ const Grid = (() => {
     return true;
   }
 
-  async function setPosition(x, y, dir, energyLevel = ENERGY_MAX) {
+  async function setPosition(x, y, dir, energyLevel = ENERGY_MAX, eventType = null) {
     const row = ROWS - 1 - y;
     const col = x;
 
-    return _moveTo(row, col, dir, energyLevel);
+    return _moveTo(row, col, dir, energyLevel, eventType);
+  }
+
+  function recordTrailEvent(eventType) {
+    if (!trail.length) return;
+    trail.push({ row: robotRow, col: robotCol, moveIndex: nextMoveIndex, eventType });
+    nextMoveIndex += 1;
+    if (trail.length > MAX_TRACK_POINTS) trail.shift();
+    _renderTrailPath();
   }
 
   async function move(row, col, dir, energyLevel = ENERGY_MAX) {
@@ -497,6 +508,7 @@ const Grid = (() => {
     pickItemAtRobot,
     dropItemAtRobot,
     returnToDefault,
+    recordTrailEvent,
     playPickAnimation,
     playDropAnimation,
     playRechargeAnimation,
